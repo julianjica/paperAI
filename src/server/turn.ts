@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { renderCommentBatch } from "../core/comments.ts";
-import type { AssistantPart, ChatMessage, Comment, Project, QueuedMessage, Settings, TurnRecord } from "../core/types.ts";
+import type { AssistantPart, ChatMessage, Comment, Project, QueuedMessage, TurnRecord } from "../core/types.ts";
 import { engineFor } from "../engine/index.ts";
 import { publish } from "./bus.ts";
 import { readChat, writeChat, type ChatRecord } from "./chat.ts";
@@ -9,7 +9,7 @@ import { compile } from "./compile.ts";
 import { readJson, writeJson } from "./fsjson.ts";
 import { listManuscriptFiles, sidecar } from "./projects.ts";
 import { mainSystemPrompt } from "./prompt.ts";
-import { readSettings } from "./settings.ts";
+import { settingsFor, type EffectiveSettings } from "./settings.ts";
 import { diffSinceSnapshot, pruneSnapshots, takeSnapshot } from "./snapshots.ts";
 import { askAuthorTool, compileTool, delegateTool, resolveCommentTool } from "./tools.ts";
 
@@ -89,7 +89,7 @@ function startNextQueued(project: Project): void {
 /** Validate and start a turn; the run continues in the background. Throws synchronously on bad input. */
 export function startTurn(project: Project, input: TurnInput): { turnId: string; done: Promise<TurnRecord> } {
 	if (active.has(project.id)) throw new Error("A turn is already running for this project.");
-	const settings = readSettings();
+	const settings = settingsFor(project);
 	const turnId = nanoid(10);
 	const record = readChat(project);
 	const pending = input.sendComments ? listComments(project).filter((c) => c.status === "pending") : [];
@@ -108,7 +108,7 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	return { turnId, done };
 }
 
-interface TurnContext { settings: Settings; turnId: string; record: ChatRecord; comments: Comment[]; userText: string; controller: AbortController }
+interface TurnContext { settings: EffectiveSettings; turnId: string; record: ChatRecord; comments: Comment[]; userText: string; controller: AbortController }
 
 async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Promise<TurnRecord> {
 	const { settings, turnId, record, comments, userText, controller } = cx;
@@ -135,7 +135,7 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 		writeChat(project, record);
 	};
 	try {
-		for await (const e of engine.run({ cwd: project.folder, systemPrompt: mainSystemPrompt(project, files), model: settings.model, effort: settings.effort, input: userText, resume, tools, signal: controller.signal, label: `turn ${turnId}` })) {
+		for await (const e of engine.run({ cwd: project.folder, systemPrompt: mainSystemPrompt(project, files, settings.styleNote), model: settings.model, effort: settings.effort, input: userText, resume, tools, signal: controller.signal, label: `turn ${turnId}` })) {
 			publish(project.id, { type: "agent", turnId, event: e });
 			switch (e.type) {
 				case "session":

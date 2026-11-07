@@ -1,5 +1,5 @@
-export { readSettings, writeSettings, DEFAULT_SETTINGS } from "./settings.ts";
-export { listProjects, getProject, addProject, touchProject, removeProject, listManuscriptFiles, listMainCandidates, sidecar } from "./projects.ts";
+export { readSettings, writeSettings, settingsFor, DEFAULT_SETTINGS, type EffectiveSettings } from "./settings.ts";
+export { listProjects, getProject, addProject, touchProject, removeProject, updateProjectSettings, listManuscriptFiles, listMainCandidates, sidecar } from "./projects.ts";
 export { subscribe, publish } from "./bus.ts";
 export { compile, pdfPath, servedPdfPath, lastCompile } from "./compile.ts";
 export { locate } from "./synctex.ts";

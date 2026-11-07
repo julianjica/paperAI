@@ -1,9 +1,10 @@
 import { nanoid } from "nanoid";
-import type { Project, Settings, WorkerState } from "../core/types.ts";
+import type { Project, WorkerState } from "../core/types.ts";
 import { engineFor } from "../engine/index.ts";
 import type { AppTool } from "../engine/engine.ts";
 import { publish } from "./bus.ts";
 import { workerSystemPrompt } from "./prompt.ts";
+import type { EffectiveSettings } from "./settings.ts";
 
 const g = globalThis as unknown as { __raWorkers?: Map<string, WorkerState[]> };
 g.__raWorkers ??= new Map();
@@ -27,8 +28,12 @@ function line(w: WorkerState, text: string) {
 
 export interface WorkerTask { title: string; instructions: string; files: string[] }
 
-/** Run one worker to completion; its state streams to the activity panel. */
-export async function runWorker(project: Project, settings: Settings, turnId: string, batch: number, task: WorkerTask, tools: AppTool[], signal: AbortSignal): Promise<WorkerState> {
+/**
+ * Run one worker to completion; its state streams to the activity panel.
+ * `settings` is the turn's effective-settings object (passed through delegate
+ * unchanged), so the author's style note reaches the worker prompt too.
+ */
+export async function runWorker(project: Project, settings: EffectiveSettings, turnId: string, batch: number, task: WorkerTask, tools: AppTool[], signal: AbortSignal): Promise<WorkerState> {
 	const w: WorkerState = { id: nanoid(8), turnId, batch, title: task.title, files: task.files, status: "running", startedAt: Date.now(), activity: [] };
 	remember(project.id, w);
 	publish(project.id, { type: "worker", worker: w });
@@ -45,7 +50,7 @@ export async function runWorker(project: Project, settings: Settings, turnId: st
 	try {
 		for await (const e of engine.run({
 			cwd: project.folder,
-			systemPrompt: workerSystemPrompt(project, task.files),
+			systemPrompt: workerSystemPrompt(project, task.files, settings.styleNote),
 			model: settings.workerModel,
 			effort: settings.workerEffort,
 			input: `Task: ${task.title}\n\n${task.instructions}`,

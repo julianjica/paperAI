@@ -13,6 +13,7 @@ import { addComment, listComments } from "../src/server/comments.ts";
 import { subscribe } from "../src/server/bus.ts";
 import { writeSettings } from "../src/server/settings.ts";
 import { listWorkers } from "../src/server/workers.ts";
+import { updateProjectSettings } from "../src/server/projects.ts";
 
 compileRuntime.run = async () => ({ ok: true, errors: [] });
 writeSettings({ engine: "claude-code", model: "m", workerModel: "w", effort: "low", workerEffort: "low" });
@@ -125,6 +126,35 @@ test("comments ride along, resolve_comment works, and delegate runs workers with
 	const workers = listWorkers(project.id);
 	assert.equal(workers.length, 2);
 	assert.ok(workers.every((w) => w.status === "done"));
+});
+
+test("a project's own model and style note reach the main agent and its workers", async () => {
+	const { project: fresh } = makePaper();
+	// startTurn uses the Project object it is handed, so take the updated record.
+	const project = updateProjectSettings(fresh.id, { model: "pm", workerModel: "pw", styleNote: "Write as \"we\"; never touch Appendix B." });
+	const calls: RunOptions[] = [];
+	setEngine(
+		"claude-code",
+		scripted(async (o, emit) => {
+			if (o.label?.startsWith("worker")) return emit({ type: "done", text: "worker done" });
+			await o.tools.find((t) => t.name === "delegate")!.handler({ tasks: [{ title: "intro", instructions: "edit intro", files: ["sections/intro.tex"] }] });
+			emit({ type: "done", text: "ok" });
+		}, calls),
+	);
+	await startTurn(project, { text: "Polish", sendComments: false }).done;
+	assert.equal(calls.length, 2);
+	assert.equal(calls[0].model, "pm");
+	assert.equal(calls[0].effort, "low"); // not overridden: the global value
+	assert.equal(calls[1].model, "pw");
+	for (const c of calls) {
+		assert.ok(c.systemPrompt.includes("Author's notes for this paper"));
+		assert.ok(c.systemPrompt.includes("never touch Appendix B."));
+	}
+	// Without a note there is no heading.
+	setEngine("claude-code", scripted(async (_o, emit) => emit({ type: "done", text: "ok" }), calls));
+	await startTurn(fresh, { text: "Again", sendComments: false }).done;
+	assert.equal(calls[2].model, "m");
+	assert.ok(!calls[2].systemPrompt.includes("Author's notes for this paper"));
 });
 
 test("comments the agent did not resolve are closed when the turn ends", async () => {

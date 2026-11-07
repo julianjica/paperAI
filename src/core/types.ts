@@ -13,6 +13,15 @@ export interface Settings {
 	workerEffort: Effort;
 }
 
+/**
+ * Per-paper overrides of the global settings (an absent field means "use the
+ * default"), plus a free-text note from the author that both agents read.
+ */
+export interface ProjectSettings extends Partial<Settings> {
+	/** Target journal, "we" vs "I", notation conventions, things never to touch. */
+	styleNote?: string;
+}
+
 export interface Project {
 	id: string;
 	/** Absolute path of the paper folder. */
@@ -22,6 +31,7 @@ export interface Project {
 	name: string;
 	createdAt: number;
 	openedAt: number;
+	settings?: ProjectSettings;
 }
 
 /** A rectangle on a PDF page in CSS-pixel-independent units: fractions of page width/height. */

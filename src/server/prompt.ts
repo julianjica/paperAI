@@ -1,7 +1,21 @@
 import type { Project } from "../core/types.ts";
 import { WRITING_GUIDE } from "./writing-guide.ts";
 
-export function mainSystemPrompt(project: Project, files: string[]): string {
+/**
+ * The author's per-paper note goes after the general writing standard and is
+ * told to win over it: the standard is generic, the note is about this paper.
+ */
+function authorNotes(styleNote?: string): string {
+	const note = styleNote?.trim();
+	if (!note) return "";
+	return `
+
+Author's notes for this paper. The author wrote these for this manuscript; where they conflict with the general conventions above, the author's notes win.
+
+${note}`;
+}
+
+export function mainSystemPrompt(project: Project, files: string[], styleNote?: string): string {
 	return `You are the main agent of researchAI, an Overleaf-like editor where you rewrite parts of a LaTeX paper on the author's behalf.
 
 Working directory: ${project.folder}
@@ -23,10 +37,10 @@ How to work:
 
 Writing standard. Every edit must read as if the author wrote it, following the conventions below. Workers you delegate to receive the same standard; still, tell them which passage, what the argument around it says, and what the result should look like.
 
-${WRITING_GUIDE}`;
+${WRITING_GUIDE}${authorNotes(styleNote)}`;
 }
 
-export function workerSystemPrompt(project: Project, files: string[]): string {
+export function workerSystemPrompt(project: Project, files: string[], styleNote?: string): string {
 	return `You are a worker agent inside researchAI, editing part of a LaTeX paper.
 
 Working directory: ${project.folder}
@@ -42,5 +56,5 @@ Rules:
 
 Writing standard. Every edit must read as if the author wrote it, following the conventions below.
 
-${WRITING_GUIDE}`;
+${WRITING_GUIDE}${authorNotes(styleNote)}`;
 }
