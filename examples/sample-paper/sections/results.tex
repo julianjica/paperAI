@@ -13,12 +13,12 @@ The intuition is simple. Keeping task $i$ rather than delegating it gains $b v_i
 \subsection{Delegation with monitoring}
 
 \begin{proposition}
-\label{prop:nonmonotone}
-With monitoring, the number of delegated tasks is non-monotone in $A$: it is decreasing in $A$ for small $A$ and increasing in $A$ for large $A$.
+\label{prop:cutoff}
+With monitoring, there is a cutoff $\hat{k}$, which does not depend on $A$, such that the manager keeps the $\min\{\lfloor A \rfloor, \hat{k}\}$ most important tasks and devotes all remaining attention to monitoring. The number of delegated tasks is weakly decreasing in $A$ and constant once $A \geq \hat{k}$.
 \end{proposition}
 
-When attention is scarce, every unit is spent on keeping the most valuable tasks. When attention is abundant, a unit of monitoring improves the payoff on every delegated task at once, so the manager prefers to delegate more and monitor better. The proof is in Appendix~\ref{app:proofs}.
+Attention has two uses, keeping a task and monitoring the delegated ones, and the comparison between them does not involve $A$: keeping one more task recovers its own misalignment loss but removes it from the pool that monitoring improves, and both effects scale with the same factor $e^{-(A-k)}$. Attention therefore only determines how many tasks the manager \emph{can} keep, not how many she \emph{wants} to keep. Once she can afford $\hat{k}$ tasks, every additional unit goes to monitoring. The proof is in Appendix~\ref{app:proofs}.
 
 \subsection{Implications for firm boundaries}
 
-A task that is delegated with high residual misalignment is a candidate for outsourcing. Proposition~\ref{prop:nonmonotone} implies that firms with intermediate managerial attention integrate the most tasks.
+A task that is delegated with high residual misalignment is a candidate for outsourcing. Proposition~\ref{prop:cutoff} implies that managerial attention beyond $\hat{k}$ changes how well delegated tasks are run, not which tasks are integrated.

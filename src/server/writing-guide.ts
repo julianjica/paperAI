@@ -1,0 +1,44 @@
+/**
+ * The house style for formal theory papers in economics, strategy and
+ * management. Distilled from how the best-presented papers in Management
+ * Science, Strategy Science and the top economics journals are written.
+ * Every agent that touches the manuscript gets this verbatim.
+ */
+export const WRITING_GUIDE = `## How a good formal theory paper is written
+
+### Shape of the paper
+- Introduction: open with the concrete question in plain words (a puzzle, a practical dilemma, or two intuitions that pull in opposite directions), not with a literature survey. State what the paper does in one sentence ("The purpose of this paper is to..."). Explain in words the key modelling idea or definition and why it is the right one. Then walk through the main results in the order the paper presents them, giving for each the economic logic in a sentence and one practical implication. Close with the contribution, stated precisely. Position against the closest papers in a separate literature paragraph or subsection, naming each difference concretely ("whereas X studies..., this paper...").
+- Model: start with two or three sentences saying what setting is studied and what question the model is meant to answer. Introduce the primitives in the order a reader needs them (players and choices; payoffs; information; timing; solution concept), each formal object followed immediately by its interpretation ("where alpha_k measures how much..."). Introduce a small running example with concrete numbers early and use it to illustrate every later result. State simplifying assumptions and tie-breaking rules explicitly and say why they are harmless ("to break indifference, which simplifies the statements without affecting the results"). Say which assumptions can be relaxed and which matter. Put the timing in a numbered list or a timing figure.
+- Before the general results, develop the intuition on the running example with actual numbers, then generalize in words ("Generalizing beyond this example, the equilibrium always takes the form..."), pointing to the appendix for the formal statement.
+- Results sections are organized by economic question, not by lemma. Each subsection: (1) why the question matters and what the folk intuition says; (2) definitions of the concepts in words; (3) the variation of the model needed, introduced with "Consider a variation of the basic model in which..."; (4) the proposition; (5) right after it: the illustration on the running example with numbers, the intuition (the mechanism, in two to five sentences), the caveats, and the practical implications with a real-world example; (6) how the result confirms or differs from existing arguments.
+- Conclusion: restate the theory in a sentence, say what the results add up to, give the implications (for practice, for related theory), say what the theory is not about, and list open questions. No new results, no summary that repeats the introduction.
+- Appendix: a short preamble with the recurring notation; lemmas that carry the heavy lifting; then the proofs of propositions, many of which reduce to one line ("This follows directly from Lemma 2."). Proofs are prose arguments with equations inline, cases enumerated in words ("Consider first the case... Consider next..."), ending with the QED mark.
+
+### How results are stated
+- A proposition states an economic claim in words, as comparative statics or a characterization: "A decision is more strategic when it is more stable, i.e., when (1 - Delta) increases. The value of strategy increases in the stability of the decisions." The formal content goes in parentheses or after "Formally," at the end: "(Formally, pi_k increases in alpha_k and p_k.)" Several related claims become numbered parts (1), (2), (3) of one proposition rather than three propositions.
+- Negative and boundary results are stated too ("No matter how important, a decision is not strategic unless it has sufficient interactions"), because they sharpen the mechanism.
+- Definitions are numbered, given in words, and followed by a paragraph that explains what the definition captures, what it deliberately leaves out, and why this is the useful notion ("Note that this is an ex ante definition...").
+- The paragraph after a result never restates it. It does one of: illustrate with numbers from the running example; give the mechanism; qualify it; draw the implication for practice; relate it to the literature.
+- Long derivations and all proofs go to the appendix. The body keeps a one-line pointer ("The formal statement and proof are in the appendix.") and the intuition.
+
+### Prose
+- Plain, direct, continuous argument. Long paragraphs that carry one idea each; sentences that connect with "To see this,", "In particular,", "It follows that", "In other words,", "Note that", "Consider...". Questions are used to frame a section ("But in which direction does this relationship run?").
+- Introduce every symbol where first used, with its meaning. Keep notation to what is needed to state the results; use words where a symbol adds nothing. Reuse the same notation throughout. Defined terms are italicized at the point of definition only.
+- Use "i.e." and "e.g." for restatement and examples; use parentheses for the formal version of a verbal claim.
+- Concrete over abstract: a numerical example beats an extra paragraph of prose; a named real-world example (a firm, a decision) beats "practitioners".
+- The author's voice decides between "I" and "we"; keep whichever the manuscript uses.
+
+### What to avoid (these read as artificial)
+- Bullet lists, bold text, and sub-sub-headings in the body of the paper. Enumerations go in prose ("First, ... Second, ... Third, ...") unless the paper already uses a list for definitions or timing.
+- Boilerplate: "In this section we...", "This paper is organized as follows" beyond one short roadmap sentence, "It is important to note that", "Importantly,", "Notably,", "Crucially,", "Interestingly,", "delve", "robust", "nuanced", "leverage", "underscore", "shed light", "a rich set of", "in today's".
+- Restating a proposition in the sentence after it; ending a paragraph with a summary of the paragraph; triplets of adjectives; rhetorical flourishes.
+- Hedged or inflated claims ("may potentially", "significantly enhances"). Say what holds and under which condition.
+- Introducing new notation for a one-off remark; defining a symbol twice; changing the paper's conventions (indices, names of sets, theorem numbering).
+
+### When editing someone else's manuscript
+- Work at the level of the paragraph: read the whole section first, make the edit fit the surrounding argument, and keep the author's voice, tense, person and notation.
+- Prefer the smallest change that achieves the request. A "rewrite" replaces sentences, not the argument, unless the argument is wrong.
+- When adding intuition after a result, give the mechanism (why it holds), then an illustration or implication; do not paraphrase the statement.
+- When tightening a statement, keep every condition that the proof uses; move anything the proof does not need to the discussion.
+- Keep labels, references and citations intact; cite only works already in the bibliography unless asked to add one.
+- Before finishing, reread the edited passage in context and check: does it connect to the sentence before and after; does it use only notation already defined; would a careful referee see it as part of the original paper.`;

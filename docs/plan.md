@@ -110,3 +110,9 @@ Not yet live-checked: the Electron window (code written, `npm run desktop:dev`),
 Known limits: the `delegate` call blocks until workers finish (no timeout seen on either CLI so far);
 sessions resume per project only while the engine stays the same; multi-page selections keep the
 first page only.
+
+## Writing standard (2026-11-07)
+Agent edits read as artificial unless they follow the conventions of well-presented formal theory
+papers. `src/server/writing-guide.ts` distils those conventions (shape of the paper; how propositions,
+definitions and the paragraph after a result are written; prose habits; what reads as artificial; how to
+edit someone else's manuscript) and both the main and worker prompts include it verbatim.
