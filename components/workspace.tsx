@@ -308,6 +308,11 @@ export function Workspace({ id }: { id: string }) {
 								running={running}
 								onSelect={selectComment}
 								onDelete={(cid) => void api.del(`/api/projects/${id}/comments/${cid}`)}
+								onReopen={(cid) => void api.patch(`/api/projects/${id}/comments/${cid}`, { status: "pending" })}
+								onClearResolved={() => {
+									const resolved = data.comments.filter((c) => c.status === "resolved");
+									if (resolved.length && confirm(`Delete ${resolved.length} resolved comment${resolved.length === 1 ? "" : "s"}?`)) for (const c of resolved) void api.del(`/api/projects/${id}/comments/${c.id}`);
+								}}
 								onSendAll={() => void send("", true)}
 							/>
 						</div>

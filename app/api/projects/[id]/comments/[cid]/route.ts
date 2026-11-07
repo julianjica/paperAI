@@ -7,7 +7,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[
 	const patch = (await request.json()) as Record<string, unknown>;
 	const allowed: Record<string, unknown> = {};
 	if (typeof patch.text === "string") allowed.text = patch.text;
-	if (patch.status === "pending") allowed.status = "pending"; // reopen
+	if (patch.status === "pending") Object.assign(allowed, { status: "pending", resolution: undefined, turnId: undefined }); // reopen
 	const comment = updateComment(project, cid, allowed);
 	return comment ? Response.json({ comment }) : Response.json({ error: "No such comment" }, { status: 404 });
 }
