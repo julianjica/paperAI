@@ -42,6 +42,41 @@ export function Workspace({ id }: { id: string }) {
 	const [pdfVersion, setPdfVersion] = useState(0);
 	const [toast, setToast] = useState<string | null>(null);
 	const turnsRunning = useRef(false);
+	// Width of the left column, draggable and remembered per browser.
+	const [asideWidth, setAsideWidth] = useState(416);
+	useEffect(() => {
+		try {
+			const saved = Number(localStorage.getItem("ra:aside-width"));
+			if (saved >= 280) setAsideWidth(saved);
+		} catch {
+			// storage unavailable
+		}
+	}, []);
+	const startResize = (e: React.MouseEvent) => {
+		e.preventDefault();
+		const startX = e.clientX;
+		const startW = asideWidth;
+		const max = Math.max(320, window.innerWidth * 0.7);
+		document.body.style.cursor = "col-resize";
+		document.body.style.userSelect = "none";
+		const onMove = (ev: MouseEvent) => setAsideWidth(Math.min(max, Math.max(280, startW + ev.clientX - startX)));
+		const onUp = () => {
+			document.body.style.cursor = "";
+			document.body.style.userSelect = "";
+			window.removeEventListener("mousemove", onMove);
+			window.removeEventListener("mouseup", onUp);
+			setAsideWidth((w) => {
+				try {
+					localStorage.setItem("ra:aside-width", String(w));
+				} catch {
+					// ignore
+				}
+				return w;
+			});
+		};
+		window.addEventListener("mousemove", onMove);
+		window.addEventListener("mouseup", onUp);
+	};
 
 	const load = useCallback(async () => {
 		try {
@@ -195,7 +230,7 @@ export function Workspace({ id }: { id: string }) {
 				</button>
 			</header>
 			<div className="flex min-h-0 flex-1">
-				<aside className="flex w-[26rem] shrink-0 flex-col border-r border-line bg-panel">
+				<aside className="flex shrink-0 flex-col bg-panel" style={{ width: asideWidth }}>
 					<nav className="flex border-b border-line text-xs">
 						{(
 							[
@@ -231,6 +266,9 @@ export function Workspace({ id }: { id: string }) {
 						{tab === "changes" && <ChangesPanel turns={data.chat.turns} running={running} onRevert={(t) => void revert(t)} />}
 					</div>
 				</aside>
+				<div className="group relative w-1.5 shrink-0 cursor-col-resize border-l border-line hover:bg-accent/40" onMouseDown={startResize} title="Drag to resize">
+					<div className="absolute inset-y-0 -left-1 -right-1" />
+				</div>
 				<main className="min-w-0 flex-1">
 					{view === "pdf" ? (
 						<PdfViewer

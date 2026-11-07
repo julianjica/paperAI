@@ -61,6 +61,22 @@ export function PdfViewer({
 	const [status, setStatus] = useState<"loading" | "ready" | "missing" | "error">("loading");
 	const pages = useRef(new Map<number, PageInfo>());
 	const [renderTick, setRenderTick] = useState(0);
+	// Re-fit the pages when the viewer's width changes (column resize, window resize).
+	const [fitWidth, setFitWidth] = useState(0);
+	useEffect(() => {
+		const el = container.current;
+		if (!el) return;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const ro = new ResizeObserver(() => {
+			if (timer) clearTimeout(timer);
+			timer = setTimeout(() => setFitWidth(el.clientWidth), 150);
+		});
+		ro.observe(el);
+		return () => {
+			ro.disconnect();
+			if (timer) clearTimeout(timer);
+		};
+	}, []);
 	// Dark PDF: inverts the rendered pages. Remembered per browser; defaults to the OS theme.
 	const [dark, setDark] = useState(false);
 	useEffect(() => {
@@ -112,9 +128,10 @@ export function PdfViewer({
 		};
 	}, [projectId, version]);
 
-	// Render all pages whenever the document or zoom changes.
+	// Render all pages whenever the document, zoom or available width changes.
 	useEffect(() => {
 		if (!doc || !pagesEl.current || !container.current) return;
+		void fitWidth;
 		let cancelled = false;
 		const root = pagesEl.current;
 		const scrollTop = container.current.scrollTop;
@@ -181,7 +198,7 @@ export function PdfViewer({
 		return () => {
 			cancelled = true;
 		};
-	}, [doc, zoom]);
+	}, [doc, zoom, fitWidth]);
 
 	// Draw highlights into each page's overlay.
 	useEffect(() => {
