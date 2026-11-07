@@ -1,7 +1,7 @@
 export { readSettings, writeSettings, DEFAULT_SETTINGS } from "./settings.ts";
 export { listProjects, getProject, addProject, touchProject, removeProject, listManuscriptFiles, listMainCandidates, sidecar } from "./projects.ts";
 export { subscribe, publish } from "./bus.ts";
-export { compile, pdfPath, lastCompile } from "./compile.ts";
+export { compile, pdfPath, servedPdfPath, lastCompile } from "./compile.ts";
 export { locate } from "./synctex.ts";
 export { listComments, addComment, updateComment, deleteComment } from "./comments.ts";
 export { readChat, resetChat } from "./chat.ts";

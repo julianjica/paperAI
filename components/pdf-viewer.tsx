@@ -98,29 +98,41 @@ export function PdfViewer({
 		});
 	};
 
-	// Load (and reload on every new version), keeping the scroll position.
+	// Load (and reload on every new version), keeping the scroll position. A
+	// build may still be in flight when the fetch lands, so empty or invalid
+	// bytes are retried a few times and the previous document stays on screen.
 	useEffect(() => {
 		let cancelled = false;
-		setStatus("loading");
+		setStatus((s) => (s === "ready" ? s : "loading"));
 		void (async () => {
-			try {
-				const pdfjs = await loadPdfjs();
-				const res = await fetch(`/api/projects/${projectId}/pdf?v=${version}`);
-				if (res.status === 404) {
-					if (!cancelled) setStatus("missing");
+			const pdfjs = await loadPdfjs();
+			for (let attempt = 0; attempt < 5 && !cancelled; attempt++) {
+				try {
+					const res = await fetch(`/api/projects/${projectId}/pdf?v=${version}&a=${attempt}`);
+					if (res.status === 404) {
+						if (!cancelled) setStatus((s) => (s === "ready" ? s : "missing"));
+						return;
+					}
+					if (res.status === 503) throw new Error("build in progress");
+					const data = await res.arrayBuffer();
+					if (data.byteLength === 0) throw new Error("empty");
+					const loaded = await pdfjs.getDocument({ data }).promise;
+					if (cancelled) {
+						void loaded.loadingTask.destroy();
+						return;
+					}
+					setDoc((old) => {
+						void old?.loadingTask.destroy();
+						return loaded;
+					});
+					setStatus("ready");
 					return;
+				} catch (e) {
+					if (attempt === 4) {
+						console.error(e);
+						if (!cancelled) setStatus((s) => (s === "ready" ? s : "error"));
+					} else await new Promise((r) => setTimeout(r, 1200));
 				}
-				const data = await res.arrayBuffer();
-				const loaded = await pdfjs.getDocument({ data }).promise;
-				if (cancelled) return;
-				setDoc((old) => {
-					void old?.loadingTask.destroy();
-					return loaded;
-				});
-				setStatus("ready");
-			} catch (e) {
-				console.error(e);
-				if (!cancelled) setStatus("error");
 			}
 		})();
 		return () => {

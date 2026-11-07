@@ -27,8 +27,29 @@ export function buildDir(project: Project): string {
 	return sidecar(project, "build");
 }
 
+/** latexmk's output; rewritten in place during every build (may be empty mid-build). */
 export function pdfPath(project: Project): string {
 	return path.join(buildDir(project), `${path.basename(project.mainTex, ".tex")}.pdf`);
+}
+
+/** The PDF the viewer loads: a copy of the last GOOD build, replaced atomically. */
+export function servedPdfPath(project: Project): string {
+	return path.join(buildDir(project), "current.pdf");
+}
+
+/** Publish the build output as the served PDF (copy + rename, so readers never see a partial file). */
+function publishPdf(project: Project): boolean {
+	const src = pdfPath(project);
+	try {
+		if (!fs.existsSync(src) || fs.statSync(src).size === 0) return false;
+		const dest = servedPdfPath(project);
+		const tmp = `${dest}.${process.pid}.tmp`;
+		fs.copyFileSync(src, tmp);
+		fs.renameSync(tmp, dest);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export function lastCompile(project: Project): CompileResult | undefined {
@@ -85,8 +106,8 @@ function runLatexmk(project: Project, s: State): Promise<CompileResult> {
 			}
 			let errors = ok ? [] : extractLatexErrors(log);
 			if (!ok && errors.length === 0) errors = [extra ?? out.trim().split("\n").slice(-5).join("\n") ?? "latexmk failed"];
-			const pdfExists = fs.existsSync(pdfPath(project));
-			if (pdfExists) s.version += 1;
+			// A failed build can still leave a usable PDF (latexmk keeps going past errors).
+			if (publishPdf(project)) s.version += 1;
 			const result: CompileResult = { ok, errors, durationMs: Date.now() - started, version: s.version };
 			s.last = result;
 			publish(project.id, { type: "compiled", result });
