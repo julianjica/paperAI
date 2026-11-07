@@ -114,8 +114,9 @@ body {
 .ra-pdf-dark .ra-page .textLayer ::selection { background: rgba(79, 180, 140, 0.45); }
 .ra-highlight {
 	position: absolute;
-	pointer-events: auto;
-	cursor: pointer;
+	/* The mouse passes through, so text under a highlight can be selected again;
+	   clicks on highlights are resolved by position in the viewer. */
+	pointer-events: none;
 	mix-blend-mode: multiply;
 	border-radius: 2px;
 }

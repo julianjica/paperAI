@@ -224,14 +224,7 @@ export function PdfViewer({
 					div.style.width = `${r.w * 100}%`;
 					div.style.height = `${r.h * 100}%`;
 					div.style.background = item.id && item.id === activeCommentId ? "var(--highlight-active)" : "var(--highlight)";
-					if (item.id) {
-						const id = item.id;
-						div.dataset.comment = id;
-						div.addEventListener("click", (e) => {
-							e.stopPropagation();
-							onSelectComment(id);
-						});
-					}
+					if (item.id) div.dataset.comment = item.id;
 					overlay.appendChild(div);
 				}
 			}
@@ -373,7 +366,22 @@ export function PdfViewer({
 					{compiling ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Compile
 				</button>
 			</div>
-			<div ref={container} className={cn("flex-1 overflow-auto bg-bg p-6", dark && "ra-pdf-dark")} onMouseUp={onMouseUp} onClick={() => onSelectComment(null)}>
+			<div
+				ref={container}
+				className={cn("flex-1 overflow-auto bg-bg p-6", dark && "ra-pdf-dark")}
+				onMouseUp={onMouseUp}
+				onClick={(e) => {
+					// A plain click (no selection) on a highlight selects its comment; elsewhere it clears the selection.
+					const sel = window.getSelection();
+					if (sel && !sel.isCollapsed) return;
+					// Highlights let the mouse pass through, so hit-test them by geometry.
+					const hit = Array.from(pagesEl.current?.querySelectorAll<HTMLElement>(".ra-highlight[data-comment]") ?? []).find((el) => {
+						const r = el.getBoundingClientRect();
+						return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+					});
+					onSelectComment(hit?.dataset.comment ?? null);
+				}}
+			>
 				{status === "missing" && <p className="text-center text-ink-muted">No PDF yet. Compile to render the paper.</p>}
 				{status === "error" && <p className="text-center text-danger">Could not load the PDF.</p>}
 				{status === "loading" && !doc && (
