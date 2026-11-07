@@ -123,3 +123,12 @@ Agent edits read as artificial unless they follow the conventions of well-presen
 papers. `src/server/writing-guide.ts` distils those conventions (shape of the paper; how propositions,
 definitions and the paragraph after a result are written; prose habits; what reads as artificial; how to
 edit someone else's manuscript) and both the main and worker prompts include it verbatim.
+
+## Round two (2026-11-07): threads, per-project settings, robustness
+Built by three parallel agents in worktrees and merged. Comment threads: an author reply reopens a
+comment and reaches the agent as a follow-up with its history; agent notes land on the thread.
+Per-project settings: engine/model/effort overrides and a style note appended to both prompts.
+Robustness: per-worker timeouts (default 20 min) and a turn ceiling (default 90 min), both in Settings;
+abort reaches every worker and the CLI child; turns interrupted by a server restart are closed with a
+note and their changes recovered from the snapshot; the live stream reloads on reconnect; the two CLI
+adapters are tested by replaying real recorded transcripts (tests/fixtures, scripts/record-transcript.mjs).

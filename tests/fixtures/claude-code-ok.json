@@ -1,0 +1,515 @@
+{
+	"engine": "claude-code",
+	"recordedAt": "2026-11-07T20:44:20.647Z",
+	"prompt": "Reply with the single word OK and do nothing else.",
+	"messages": [
+		{
+			"type": "system",
+			"subtype": "init",
+			"cwd": "/private/tmp/paper",
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"tools": [
+				"Bash",
+				"CronCreate",
+				"CronDelete",
+				"CronList",
+				"DesignSync",
+				"Edit",
+				"EnterWorktree",
+				"ExitWorktree",
+				"ListAgents",
+				"Monitor",
+				"NotebookEdit",
+				"PublishPlugin",
+				"PushNotification",
+				"Read",
+				"RemoteTrigger",
+				"ReportFindings",
+				"ScheduleWakeup",
+				"SendMessage",
+				"ShareOnboardingGuide",
+				"Skill",
+				"TaskStop",
+				"ToolSearch",
+				"WebFetch",
+				"WebSearch",
+				"Workflow",
+				"Write"
+			],
+			"mcp_servers": [],
+			"model": "claude-haiku-5-5",
+			"permissionMode": "bypassPermissions",
+			"slash_commands": [
+				"deep-research",
+				"design",
+				"design-sync",
+				"dataviz",
+				"update-config",
+				"verify",
+				"debug",
+				"code-review",
+				"simplify",
+				"batch",
+				"fewer-permission-prompts",
+				"doctor",
+				"loop",
+				"schedule",
+				"claude-api",
+				"workflow-authoring",
+				"run",
+				"run-skill-generator",
+				"plugin-authoring",
+				"advisor",
+				"agents",
+				"auto-mode-setup",
+				"autocompact",
+				"clear",
+				"color",
+				"compact",
+				"config",
+				"output-style",
+				"context",
+				"effort",
+				"fast",
+				"focus",
+				"heapdump",
+				"init",
+				"mcp",
+				"import",
+				"model",
+				"__remote-workflow",
+				"workflow-launch-exec",
+				"reload-plugins",
+				"reload-skills",
+				"rename",
+				"security-review",
+				"usage-credits",
+				"extra-usage",
+				"usage",
+				"insights",
+				"recap",
+				"skill-doctor",
+				"goal",
+				"design-consent",
+				"design-revoke",
+				"list-agents",
+				"team-onboarding"
+			],
+			"terminal_slash_commands": [
+				"doctor",
+				"color",
+				"focus",
+				"reload-plugins"
+			],
+			"apiKeySource": "none",
+			"claude_code_version": "2.1.319",
+			"output_style": "default",
+			"agents": [
+				"claude",
+				"Explore",
+				"general-purpose",
+				"Plan",
+				"statusline-setup",
+				"web-fetch"
+			],
+			"skills": [
+				"deep-research",
+				"design",
+				"design-sync",
+				"dataviz",
+				"update-config",
+				"verify",
+				"debug",
+				"code-review",
+				"simplify",
+				"batch",
+				"fewer-permission-prompts",
+				"doctor",
+				"loop",
+				"schedule",
+				"claude-api",
+				"workflow-authoring",
+				"run",
+				"run-skill-generator",
+				"plugin-authoring"
+			],
+			"plugins": [
+				{
+					"name": "cc-plugin-sec-default",
+					"path": "builtin",
+					"source": "cc-plugin-sec-default@builtin"
+				},
+				{
+					"name": "cc-plugin-agents-md",
+					"path": "builtin",
+					"source": "cc-plugin-agents-md@builtin"
+				},
+				{
+					"name": "cc-plugin-telemetry",
+					"path": "builtin",
+					"source": "cc-plugin-telemetry@builtin"
+				},
+				{
+					"name": "cc-plugin-privacy",
+					"path": "builtin",
+					"source": "cc-plugin-privacy@builtin"
+				},
+				{
+					"name": "cc-plugin-plugin-authoring",
+					"path": "builtin",
+					"source": "cc-plugin-plugin-authoring@builtin"
+				}
+			],
+			"capabilities": [
+				"interrupt_receipt_v1",
+				"interrupt_cancel_queued_v1",
+				"interrupt_send_now_v1",
+				"interrupt_requeue_taken_v1",
+				"msg_lifecycle_v1",
+				"request_marker_lists_v1",
+				"ask_user_question_unanswered_v1",
+				"lifecycle_wakeup_source_v1",
+				"sdk_mcp_tools_list_changed",
+				"sdk_mcp_manifests",
+				"mcp_read_resource_v1",
+				"mcp_tool_ui_meta_v1",
+				"ui_surface_v1",
+				"mcp_call_result_not_for_model_v1",
+				"mcp_call_check_permissions_v1"
+			],
+			"analytics_disabled": false,
+			"product_feedback_disabled": true,
+			"uuid": "fe3aad7f-85bd-4f82-9913-29bad7679d9a",
+			"memory_paths": {
+				"auto": "/home/user/.claude/projects/-private-var-folders-jy-f7y15js93nb4kv6qztl12pf80000gp-T-ra-record-UEXfvd/memory/"
+			},
+			"original_cwd": "/private/tmp/paper",
+			"additional_directories": [],
+			"messaging_socket_path": "/tmp/cc-socks/26166.sock",
+			"fast_mode_state": "off",
+			"fast_mode_disabled_reason": "sdk_opt_in_required",
+			"per_turn_effort_active": true,
+			"ultrathink_available": false,
+			"ultrathink_typed_raises": false,
+			"view_mode": "default"
+		},
+		{
+			"type": "system",
+			"subtype": "status",
+			"status": "requesting",
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"uuid": "d4a142d9-4110-4219-a696-3c1644f6165d"
+		},
+		{
+			"type": "rate_limit_event",
+			"rate_limit_info": {
+				"status": "allowed",
+				"resetsAt": 1794087000,
+				"rateLimitType": "five_hour",
+				"overageStatus": "rejected",
+				"overageDisabledReason": "org_level_disabled",
+				"isUsingOverage": false,
+				"unifiedWindows": {
+					"five_hour": {
+						"utilization": 0.41,
+						"resetsAt": 1794087000,
+						"status": "allowed"
+					}
+				}
+			},
+			"uuid": "cce19a18-bfd1-417c-9527-973a25537a1d",
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165"
+		},
+		{
+			"type": "stream_event",
+			"event": {
+				"type": "message_start",
+				"message": {
+					"model": "claude-haiku-5-5",
+					"id": "msg_011CgpDhVACDnZzuAbegtxDa",
+					"type": "message",
+					"role": "assistant",
+					"content": [],
+					"container": null,
+					"stop_reason": null,
+					"stop_sequence": null,
+					"stop_details": null,
+					"usage": {
+						"input_tokens": 2,
+						"cache_creation_input_tokens": 5818,
+						"cache_read_input_tokens": 10146,
+						"cache_creation": {
+							"ephemeral_5m_input_tokens": 0,
+							"ephemeral_1h_input_tokens": 5818
+						},
+						"output_tokens": 4,
+						"service_tier": "standard",
+						"inference_geo": "global",
+						"speed": "standard"
+					},
+					"input_transformations": [],
+					"diagnostics": null,
+					"context_management": null
+				}
+			},
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"parent_tool_use_id": null,
+			"uuid": "d677da19-d248-46c7-bc30-f380b595d942",
+			"ttft_ms": 733,
+			"thinking_display": "updates",
+			"api_message_id": "msg_011CgpDhVACDnZzuAbegtxDa"
+		},
+		{
+			"type": "stream_event",
+			"event": {
+				"type": "content_block_start",
+				"index": 0,
+				"content_block": {
+					"type": "text",
+					"text": ""
+				}
+			},
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"parent_tool_use_id": null,
+			"uuid": "6e06cbe2-b314-47d1-886a-79d1e0c55f79",
+			"api_message_id": "msg_011CgpDhVACDnZzuAbegtxDa"
+		},
+		{
+			"type": "stream_event",
+			"event": {
+				"type": "content_block_delta",
+				"index": 0,
+				"delta": {
+					"type": "text_delta",
+					"text": "OK"
+				}
+			},
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"parent_tool_use_id": null,
+			"uuid": "31807c13-73d2-4caa-b440-b4f5e474e04d",
+			"api_message_id": "msg_011CgpDhVACDnZzuAbegtxDa"
+		},
+		{
+			"type": "assistant",
+			"message": {
+				"model": "claude-haiku-5-5",
+				"id": "msg_011CgpDhVACDnZzuAbegtxDa",
+				"type": "message",
+				"role": "assistant",
+				"content": [
+					{
+						"type": "text",
+						"text": "OK"
+					}
+				],
+				"container": null,
+				"stop_reason": null,
+				"stop_sequence": null,
+				"stop_details": null,
+				"usage": {
+					"input_tokens": 2,
+					"cache_creation_input_tokens": 5818,
+					"cache_read_input_tokens": 10146,
+					"cache_creation": {
+						"ephemeral_5m_input_tokens": 0,
+						"ephemeral_1h_input_tokens": 5818
+					},
+					"output_tokens": 4,
+					"service_tier": "standard",
+					"inference_geo": "global",
+					"speed": "standard"
+				},
+				"input_transformations": [],
+				"diagnostics": null,
+				"context_management": null
+			},
+			"parent_tool_use_id": null,
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"uuid": "838f74b6-8af6-458c-8b17-4c746c82f331",
+			"timestamp": "2026-11-07T20:44:20.109Z",
+			"request_id": "req_011CgpDhUhRLLwaLfAS5jVUT"
+		},
+		{
+			"type": "stream_event",
+			"event": {
+				"type": "content_block_stop",
+				"index": 0
+			},
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"parent_tool_use_id": null,
+			"uuid": "cdbf1253-258f-47e6-b0d3-18b178da3c9f",
+			"api_message_id": "msg_011CgpDhVACDnZzuAbegtxDa"
+		},
+		{
+			"type": "stream_event",
+			"event": {
+				"type": "message_delta",
+				"delta": {
+					"stop_reason": "end_turn",
+					"stop_sequence": null,
+					"stop_details": null,
+					"container": null
+				},
+				"usage": {
+					"input_tokens": 2,
+					"cache_creation_input_tokens": 5818,
+					"cache_read_input_tokens": 10146,
+					"output_tokens": 4,
+					"output_tokens_details": {
+						"thinking_tokens": 0
+					},
+					"iterations": [
+						{
+							"input_tokens": 2,
+							"output_tokens": 4,
+							"cache_read_input_tokens": 10146,
+							"cache_creation_input_tokens": 5818,
+							"cache_creation": {
+								"ephemeral_5m_input_tokens": 0,
+								"ephemeral_1h_input_tokens": 5818
+							},
+							"type": "message"
+						}
+					]
+				},
+				"context_management": {
+					"applied_edits": []
+				}
+			},
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"parent_tool_use_id": null,
+			"uuid": "fd5a5106-3e56-4957-a81b-ab195de7df92",
+			"api_message_id": "msg_011CgpDhVACDnZzuAbegtxDa"
+		},
+		{
+			"type": "stream_event",
+			"event": {
+				"type": "message_stop"
+			},
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"parent_tool_use_id": null,
+			"uuid": "42dc1718-f5f8-4dd6-8153-ceea3368b68d",
+			"api_message_id": "msg_011CgpDhVACDnZzuAbegtxDa"
+		},
+		{
+			"duration_api_ms": 1352,
+			"stop_reason": "end_turn",
+			"session_id": "3a640320-eecb-4577-b8a6-104557be0165",
+			"total_cost_usd": 0.0013932600000000001,
+			"usage": {
+				"input_tokens": 2,
+				"cache_creation_input_tokens": 5818,
+				"cache_read_input_tokens": 10146,
+				"output_tokens": 4,
+				"output_tokens_details": {
+					"thinking_tokens": 0
+				},
+				"server_tool_use": {
+					"web_search_requests": 0,
+					"web_fetch_requests": 0
+				},
+				"service_tier": "standard",
+				"cache_creation": {
+					"ephemeral_1h_input_tokens": 5818,
+					"ephemeral_5m_input_tokens": 0
+				},
+				"inference_geo": "global",
+				"iterations": [
+					{
+						"input_tokens": 2,
+						"output_tokens": 4,
+						"cache_read_input_tokens": 10146,
+						"cache_creation_input_tokens": 5818,
+						"cache_creation": {
+							"ephemeral_5m_input_tokens": 0,
+							"ephemeral_1h_input_tokens": 5818
+						},
+						"type": "message"
+					}
+				],
+				"speed": "standard",
+				"fallback_credit": null
+			},
+			"modelUsage": {
+				"claude-haiku-5-5": {
+					"inputTokens": 1182,
+					"outputTokens": 20,
+					"cacheReadInputTokens": 10146,
+					"cacheCreationInputTokens": 5818,
+					"webSearchRequests": 0,
+					"costUSD": 0.0013932600000000001,
+					"contextWindow": 1000000,
+					"maxOutputTokens": 128000,
+					"thinkingTokens": 0,
+					"cacheCreationEphemeral5mInputTokens": 0,
+					"cacheCreationEphemeral1hInputTokens": 5818,
+					"canonicalModel": "claude-haiku-5-5",
+					"provider": "firstParty",
+					"costBasis": "list"
+				}
+			},
+			"permission_denials": [],
+			"terminal_reason": "completed",
+			"fast_mode_state": "off",
+			"fast_mode_disabled_reason": "sdk_opt_in_required",
+			"subagent_stats": {
+				"spawned": 0,
+				"requested": {
+					"background": 0,
+					"foreground": 0,
+					"unset": 0
+				},
+				"started_in_background": 0,
+				"max_depth": 0,
+				"spawned_by_subagents": 0,
+				"completed": 0,
+				"failed": 0,
+				"killed": {
+					"parent": 0,
+					"user": 0,
+					"system": 0
+				},
+				"refused": {
+					"depth_limit": 0,
+					"concurrency_limit": 0,
+					"budget": 0
+				},
+				"by_type": {}
+			},
+			"safety_stops": 0,
+			"is_error": false,
+			"num_turns": 1,
+			"subtype": "success",
+			"api_error_status": null,
+			"result": "OK",
+			"ttft_ms": 782,
+			"type": "result",
+			"duration_ms": 796,
+			"uuid": "ece8552b-42a7-464c-906f-bd9e55ac94bb",
+			"ttft_stream_ms": 780,
+			"time_to_request_ms": 48,
+			"first_content_frame_ms": 780,
+			"queued_turn_count": 0,
+			"result_index": 0,
+			"model_usage_since_last_result": {
+				"claude-haiku-5-5": {
+					"inputTokens": 1182,
+					"outputTokens": 20,
+					"cacheReadInputTokens": 10146,
+					"cacheCreationInputTokens": 5818,
+					"webSearchRequests": 0,
+					"costUSD": 0.0013932600000000001,
+					"contextWindow": 1000000,
+					"maxOutputTokens": 128000,
+					"thinkingTokens": 0,
+					"cacheCreationEphemeral5mInputTokens": 0,
+					"cacheCreationEphemeral1hInputTokens": 5818,
+					"canonicalModel": "claude-haiku-5-5",
+					"provider": "firstParty",
+					"costBasis": "list"
+				}
+			},
+			"credential_expires_at": "2026-12-03T15:58:38.571Z"
+		}
+	]
+}

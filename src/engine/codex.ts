@@ -176,6 +176,10 @@ export function createCodexEngine(connectOverride?: ConnectFn): Engine {
 					finish();
 				};
 				o.signal.addEventListener("abort", onAbort, { once: true });
+				// A setup request still outstanding when the run is aborted (or the server
+				// closes) must not keep the run alive; `done` resolves in both cases.
+				const guarded = <T,>(request: Promise<T>) => Promise.race([request, done.then(() => Promise.reject(new Error(failure ?? "Aborted")))]);
+				if (o.signal.aborted) onAbort();
 
 				try {
 					const connect = connectOverride ?? spawnCodex;
@@ -190,20 +194,21 @@ export function createCodexEngine(connectOverride?: ConnectFn): Engine {
 							finish();
 						},
 					});
-					await client.request("initialize", { clientInfo: { name: "researchai", title: "researchAI", version: "1" }, capabilities: { experimentalApi: true } });
+					await guarded(client.request("initialize", { clientInfo: { name: "researchai", title: "researchAI", version: "1" }, capabilities: { experimentalApi: true } }));
 					client.notify("initialized");
 					const dynamicTools = o.tools.map((t) => ({ type: "function", name: t.name, description: t.description, inputSchema: jsonSchemaOf(t) }));
 					const common = { model: o.model, baseInstructions: o.systemPrompt, approvalPolicy: "never", sandbox: "workspace-write", cwd: o.cwd, dynamicTools };
 					if (o.resume) {
 						try {
-							threadId = (await client.request<{ thread: { id: string } }>("thread/resume", { threadId: o.resume, ...common })).thread.id;
+							threadId = (await guarded(client.request<{ thread: { id: string } }>("thread/resume", { threadId: o.resume, ...common }))).thread.id;
 						} catch {
+							if (finished) throw new Error(failure ?? "Aborted");
 							threadId = undefined;
 						}
 					}
-					if (!threadId) threadId = (await client.request<{ thread: { id: string } }>("thread/start", { ...common, ephemeral: false })).thread.id;
+					if (!threadId) threadId = (await guarded(client.request<{ thread: { id: string } }>("thread/start", { ...common, ephemeral: false }))).thread.id;
 					events.push({ type: "session", id: threadId });
-					await client.request("turn/start", { threadId, input: [{ type: "text", text: o.input }], model: o.model, effort: o.effort, summary: "auto" });
+					await guarded(client.request("turn/start", { threadId, input: [{ type: "text", text: o.input }], model: o.model, effort: o.effort, summary: "auto" }));
 					await done;
 				} catch (error) {
 					failure ??= error instanceof Error ? error.message : String(error);

@@ -140,9 +140,21 @@ export function Workspace({ id }: { id: string }) {
 		api.post<{ result: CompileResult }>(`/api/projects/${id}/compile`).catch(() => undefined).finally(() => setCompiling(false));
 	}, [data, id]);
 
-	// Live events.
+	// Live events. The browser reconnects by itself after the server goes away;
+	// events sent meanwhile are lost, so every (re)connect reloads the state.
+	const streamLost = useRef(false);
 	useEffect(() => {
 		const es = new EventSource(`/api/projects/${id}/events`);
+		es.onopen = () => {
+			if (streamLost.current) {
+				streamLost.current = false;
+				showToast("Reconnected to the server; the view was refreshed.");
+			}
+			void load();
+		};
+		es.onerror = () => {
+			streamLost.current = true;
+		};
 		es.onmessage = (m) => {
 			const ev = JSON.parse(m.data) as ProjectEvent;
 			switch (ev.type) {

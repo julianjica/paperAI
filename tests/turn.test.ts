@@ -7,8 +7,9 @@ import { setEngine } from "../src/engine/index.ts";
 import { EventChannel, type Engine, type RunOptions } from "../src/engine/engine.ts";
 import type { AgentEvent, ProjectEvent } from "../src/core/types.ts";
 import { compileRuntime } from "../src/server/compile.ts";
-import { listQueued, removeQueued, startTurn, submit } from "../src/server/turn.ts";
-import { readChat } from "../src/server/chat.ts";
+import { abortTurn, listQueued, recoverInterruptedTurns, removeQueued, startTurn, submit } from "../src/server/turn.ts";
+import { readChat, writeChat } from "../src/server/chat.ts";
+import { takeSnapshot } from "../src/server/snapshots.ts";
 import { addComment, listComments } from "../src/server/comments.ts";
 import { subscribe } from "../src/server/bus.ts";
 import { writeSettings } from "../src/server/settings.ts";
@@ -213,4 +214,140 @@ test("messages sent during a turn queue up and run in order afterwards", async (
 	const chat = readChat(project);
 	assert.deepEqual(chat.messages.filter((m) => m.role === "user").map((m) => (m.role === "user" ? m.text : "")), ["one", "two", "four"]);
 	assert.equal(listQueued(project).length, 0);
+});
+
+test("a worker past its time limit fails alone while its batch mates finish", async () => {
+	const { project } = makePaper();
+	writeSettings({ workerTimeoutMin: 0.002 }); // 120 ms
+	try {
+		setEngine(
+			"claude-code",
+			scripted(async (o, emit) => {
+				if (o.label?.startsWith("worker")) {
+					if (o.input.includes("slow")) {
+						// A real adapter ends with "Aborted" once its signal fires.
+						await new Promise<void>((r) => o.signal.addEventListener("abort", () => r(), { once: true }));
+						emit({ type: "error", message: "Aborted" });
+					} else emit({ type: "done", text: "fast done" });
+					return;
+				}
+				const delegate = o.tools.find((t) => t.name === "delegate")!;
+				const r = await delegate.handler({ tasks: [{ title: "slow", instructions: "slow", files: ["main.tex"] }, { title: "fast", instructions: "fast", files: ["sections/intro.tex"] }] });
+				assert.ok(!r.isError);
+				assert.match(r.text, /Worker 1: slow \[error\]\nTimed out after 0\.002 minutes\./);
+				assert.match(r.text, /Worker 2: fast \[done\]\nfast done/);
+				assert.match(r.text, /did not finish/);
+				emit({ type: "done", text: "ok" });
+			}, []),
+		);
+		const { turnId, done } = startTurn(project, { text: "go", sendComments: false });
+		await done;
+		const workers = listWorkers(project.id).filter((w) => w.turnId === turnId);
+		assert.deepEqual(workers.map((w) => w.status), ["error", "done"]);
+		assert.ok(workers[0].activity.includes("Timed out after 0.002 minutes."));
+		const a = readChat(project).messages[1];
+		assert.equal(a.role === "assistant" ? a.error : "", undefined);
+	} finally {
+		writeSettings({ workerTimeoutMin: undefined });
+	}
+});
+
+test("Stop aborts the running workers and the turn is recorded as stopped", async () => {
+	const { project } = makePaper();
+	setEngine(
+		"claude-code",
+		scripted(async (o, emit) => {
+			if (o.label?.startsWith("worker")) {
+				await new Promise<void>((r) => o.signal.addEventListener("abort", () => r(), { once: true }));
+				emit({ type: "error", message: "Aborted" });
+				return;
+			}
+			const delegate = o.tools.find((t) => t.name === "delegate")!;
+			const r = await delegate.handler({ tasks: [{ title: "a", instructions: "wait", files: ["main.tex"] }, { title: "b", instructions: "wait", files: ["sections/intro.tex"] }] });
+			assert.equal(r.isError, true);
+			assert.match(r.text, /Worker 1: a \[error\]\nAborted/);
+			emit({ type: "error", message: "Aborted" });
+		}, []),
+	);
+	const { turnId, done } = startTurn(project, { text: "go", sendComments: false });
+	for (let i = 0; i < 100 && listWorkers(project.id).filter((w) => w.turnId === turnId).length < 2; i++) await new Promise((r) => setTimeout(r, 5));
+	assert.equal(abortTurn(project.id), true);
+	await done;
+	const workers = listWorkers(project.id).filter((w) => w.turnId === turnId);
+	assert.deepEqual(workers.map((w) => [w.status, w.result]), [["error", "Aborted"], ["error", "Aborted"]]);
+	const a = readChat(project).messages[1];
+	assert.equal(a.role === "assistant" && a.aborted, true);
+	assert.equal(a.role === "assistant" ? a.error : "x", undefined);
+});
+
+test("a turn past its time limit is stopped with a clear error", async () => {
+	const { project } = makePaper();
+	writeSettings({ turnTimeoutMin: 0.002 }); // 120 ms
+	try {
+		setEngine(
+			"claude-code",
+			scripted(async (o, emit) => {
+				emit({ type: "session", id: "s-long" });
+				await new Promise<void>((r) => o.signal.addEventListener("abort", () => r(), { once: true }));
+				emit({ type: "error", message: "Aborted" });
+			}, []),
+		);
+		const { done } = startTurn(project, { text: "take forever", sendComments: false });
+		const turn = await done;
+		assert.ok(turn.endedAt);
+		const chat = readChat(project);
+		const a = chat.messages[1];
+		assert.match(a.role === "assistant" ? a.error ?? "" : "", /stopped after 0\.002 minutes \(the turn time limit\)/);
+		assert.equal(a.role === "assistant" ? a.aborted : true, undefined);
+		// The session survives: the author can continue where the agent was cut off.
+		assert.deepEqual(chat.session, { engine: "claude-code", id: "s-long" });
+	} finally {
+		writeSettings({ turnTimeoutMin: undefined });
+	}
+});
+
+test("turns interrupted by a server restart are closed on the next read; the running turn is untouched", async () => {
+	const { folder, project } = makePaper();
+	// A turn that died mid-run: its snapshot exists, a file changed, and the record never got endedAt.
+	takeSnapshot(project, "dead1");
+	fs.appendFileSync(path.join(folder, "main.tex"), "% edited during the dead turn\n");
+	writeChat(project, {
+		messages: [
+			{ role: "user", id: "u1", text: "hi", timestamp: 1 },
+			{ role: "assistant", id: "a1", turnId: "dead1", parts: [{ kind: "text", text: "working" }], timestamp: 2 },
+			{ role: "user", id: "u2", text: "again", timestamp: 3 },
+			{ role: "assistant", id: "a2", turnId: "dead2", parts: [], timestamp: 4 },
+		],
+		// dead2 has no snapshot (pruned): closed without inventing changes.
+		turns: [{ id: "dead1", startedAt: 1, changes: [] }, { id: "dead2", startedAt: 3, changes: [] }],
+		session: { engine: "claude-code", id: "keep" },
+	});
+	assert.equal(recoverInterruptedTurns(project), 2);
+	const chat = readChat(project);
+	const [dead1, dead2] = chat.turns;
+	assert.ok(dead1.endedAt && dead2.endedAt);
+	assert.deepEqual(dead1.changes.map((c) => [c.path, c.kind]), [["main.tex", "modified"]]);
+	assert.deepEqual(dead2.changes, []);
+	for (const m of chat.messages) if (m.role === "assistant") assert.equal(m.error, "The server restarted during this turn.");
+	assert.deepEqual(chat.session, { engine: "claude-code", id: "keep" });
+	assert.equal(recoverInterruptedTurns(project), 0);
+
+	let release: () => void = () => {};
+	setEngine(
+		"claude-code",
+		scripted(async (_o, emit) => {
+			await new Promise<void>((r) => (release = r));
+			emit({ type: "done", text: "fine" });
+		}, []),
+	);
+	const { turnId, done } = startTurn(project, { text: "next", sendComments: false });
+	assert.equal(recoverInterruptedTurns(project), 0);
+	assert.equal(readChat(project).turns.find((t) => t.id === turnId)?.endedAt, undefined);
+	release();
+	await done;
+	const after = readChat(project);
+	assert.ok(after.turns.find((t) => t.id === turnId)?.endedAt);
+	const last = after.messages.at(-1);
+	assert.equal(last?.role === "assistant" ? last.error : "x", undefined);
+	assert.equal(after.turns.length, 3);
 });

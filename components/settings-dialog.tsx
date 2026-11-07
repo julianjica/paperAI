@@ -136,6 +136,19 @@ export function SettingsDialog({ projectId, onClose }: { projectId?: string; onC
 						<Row label="Worker effort">
 							<EffortSelect value={data.settings.workerEffort} onChange={(workerEffort) => void save({ workerEffort: workerEffort as Effort })} />
 						</Row>
+						<Row label="Time limits (minutes)">
+							<div className="flex gap-3">
+								<label className="flex flex-1 items-center gap-2 text-ink-muted">
+									<span className="text-xs">worker</span>
+									<input type="number" min={1} max={600} className="w-full rounded-md border border-line bg-panel-2 px-2 py-1 text-ink" defaultValue={data.settings.workerTimeoutMin ?? 20} onBlur={(e) => void save({ workerTimeoutMin: Math.max(1, Number(e.target.value) || 20) })} />
+								</label>
+								<label className="flex flex-1 items-center gap-2 text-ink-muted">
+									<span className="text-xs">turn</span>
+									<input type="number" min={1} max={1440} className="w-full rounded-md border border-line bg-panel-2 px-2 py-1 text-ink" defaultValue={data.settings.turnTimeoutMin ?? 90} onBlur={(e) => void save({ turnTimeoutMin: Math.max(1, Number(e.target.value) || 90) })} />
+								</label>
+							</div>
+							<p className="mt-1 text-xs text-ink-muted">A worker past its limit fails alone; a turn past its limit is stopped with a note, and the session is kept.</p>
+						</Row>
 					</section>
 				)}
 			</div>

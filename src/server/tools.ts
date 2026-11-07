@@ -102,6 +102,8 @@ export function delegateTool(project: Project, settings: Settings, turnId: strin
 			const results = await Promise.all(tasks.map((t) => runWorker(project, settings, turnId, batch, { ...t, files: t.files.map((f) => f.replace(/^\.\//, "")) }, [compileTool(project)], signal)));
 			const lines = results.map((w, i) => `## Worker ${i + 1}: ${w.title} [${w.status}]\n${w.result ?? "(no report)"}`);
 			const failed = results.filter((w) => w.status === "error");
+			// A stopped worker may have left its files half-edited: say so, the agent must check them.
+			if (failed.length && failed.length < results.length) lines.push(`Note: ${failed.map((w) => `"${w.title}" (${w.result})`).join(", ")} did not finish; check its files before relying on them.`);
 			return { text: lines.join("\n\n"), isError: failed.length === results.length && results.length > 0 };
 		},
 	};

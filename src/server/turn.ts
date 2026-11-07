@@ -10,7 +10,7 @@ import { readJson, writeJson } from "./fsjson.ts";
 import { listManuscriptFiles, sidecar } from "./projects.ts";
 import { mainSystemPrompt } from "./prompt.ts";
 import { settingsFor, type EffectiveSettings } from "./settings.ts";
-import { diffSinceSnapshot, pruneSnapshots, takeSnapshot } from "./snapshots.ts";
+import { diffSinceSnapshot, hasSnapshot, pruneSnapshots, takeSnapshot } from "./snapshots.ts";
 import { askAuthorTool, compileTool, delegateTool, resolveCommentTool } from "./tools.ts";
 
 /**
@@ -40,7 +40,38 @@ export function abortTurn(projectId: string): boolean {
 	return true;
 }
 
+export const DEFAULT_TURN_TIMEOUT_MIN = 90;
+/** The abort reason of a turn stopped by its time limit (a user Stop aborts with no reason). */
+class TurnTimeout extends Error {
+	constructor(minutes: number) {
+		super(`The turn was stopped after ${minutes} minutes (the turn time limit). What was done so far is kept; send a new message to continue.`);
+	}
+}
+
 export interface TurnInput { text: string; sendComments: boolean }
+
+/**
+ * A turn that was running when the server died left a turn without endedAt
+ * and an assistant message without an error. Close such turns so the chat
+ * is honest and Revert works (the snapshot was taken before the run). The
+ * running turn, if any, is never touched: its startTurn already recovered
+ * the record, and writing chat.json now would race the turn's own saves.
+ */
+export function recoverInterruptedTurns(project: Project): number {
+	if (active.has(project.id)) return 0;
+	const record = readChat(project);
+	let n = 0;
+	for (const turn of record.turns) {
+		if (turn.endedAt !== undefined || turn.id === activeTurnIds.get(project.id)) continue;
+		turn.endedAt = Date.now();
+		if (hasSnapshot(project, turn.id)) turn.changes = diffSinceSnapshot(project, turn.id);
+		const assistant = record.messages.find((m) => m.role === "assistant" && m.turnId === turn.id);
+		if (assistant?.role === "assistant" && !assistant.error && !assistant.aborted) assistant.error = "The server restarted during this turn.";
+		n++;
+	}
+	if (n) writeChat(project, record);
+	return n;
+}
 
 /**
  * Send a message: starts a turn now, or, while one is running, queues it to
@@ -91,6 +122,8 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	if (active.has(project.id)) throw new Error("A turn is already running for this project.");
 	const settings = settingsFor(project);
 	const turnId = nanoid(10);
+	// Before reading the record, so the new turn builds on the recovered one.
+	recoverInterruptedTurns(project);
 	const record = readChat(project);
 	const pending = input.sendComments ? listComments(project).filter((c) => c.status === "pending") : [];
 	if (!input.text.trim() && pending.length === 0) throw new Error("Nothing to send.");
@@ -99,7 +132,11 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	activeTurnIds.set(project.id, turnId);
 	const comments = input.sendComments ? sendPending(project, turnId) : [];
 	const userText = [input.text.trim(), renderCommentBatch(comments)].filter(Boolean).join("\n\n");
+	const minutes = settings.turnTimeoutMin ?? DEFAULT_TURN_TIMEOUT_MIN;
+	const ceiling = setTimeout(() => controller.abort(new TurnTimeout(minutes)), minutes * 60_000);
+	ceiling.unref();
 	const done = runTurn(project, input, { settings, turnId, record, comments, userText, controller }).finally(() => {
+		clearTimeout(ceiling);
 		active.delete(project.id);
 		activeTurnIds.delete(project.id);
 		closeStaleSent(project, undefined);
@@ -170,7 +207,8 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 					assistant.usage = usage;
 					break;
 				case "error":
-					if (controller.signal.aborted) assistant.aborted = true;
+					if (controller.signal.reason instanceof TurnTimeout) assistant.error = controller.signal.reason.message;
+					else if (controller.signal.aborted) assistant.aborted = true;
 					else assistant.error = e.message;
 					// A failed run cannot be resumed safely: start fresh next time.
 					if (!controller.signal.aborted) record.session = undefined;
@@ -181,8 +219,10 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 			save();
 		}
 	} catch (error) {
-		assistant.error = error instanceof Error ? error.message : String(error);
+		assistant.error = controller.signal.reason instanceof TurnTimeout ? controller.signal.reason.message : error instanceof Error ? error.message : String(error);
 	}
+	// An engine that ends with "done" after the ceiling fired still reports the limit.
+	if (controller.signal.reason instanceof TurnTimeout && !assistant.error) assistant.error = controller.signal.reason.message;
 	assistant.usage = usage;
 	if (comments.length) closeSentComments(project, turnId, assistant.error ? `The turn failed: ${assistant.error}` : assistant.aborted ? "The turn was stopped before this was addressed." : "Handled in this turn (the agent left no note).");
 	turn.endedAt = Date.now();

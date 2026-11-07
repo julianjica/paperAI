@@ -11,6 +11,10 @@ export interface Settings {
 	workerModel: string;
 	effort: Effort;
 	workerEffort: Effort;
+	/** Minutes a delegated worker may run before it is stopped (default 20). */
+	workerTimeoutMin?: number;
+	/** Minutes a turn may run before it is stopped (default 90). */
+	turnTimeoutMin?: number;
 }
 
 /**

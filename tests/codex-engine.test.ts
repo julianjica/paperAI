@@ -77,3 +77,22 @@ test("Codex adapter: resume fallback, native tool items, dynamic tool round-trip
 	assert.ok(tools[0].inputSchema.properties.text);
 	assert.ok(sent.some((m) => m.method === "thread/resume"));
 });
+
+test("Codex adapter: an abort while a setup request is outstanding ends the run and closes the transport", async () => {
+	let closed = false;
+	const closers = new Set<(r?: string) => void>();
+	// A server that never answers `initialize`.
+	const transport: CodexTransport = {
+		send() {},
+		onMessage() {},
+		onClose(l) { closers.add(l); },
+		close() { closed = true; for (const c of closers) c(); },
+	};
+	const controller = new AbortController();
+	const engine = createCodexEngine(() => transport);
+	const events: AgentEvent[] = [];
+	setTimeout(() => controller.abort(), 10);
+	for await (const e of engine.run({ cwd: "/tmp", systemPrompt: "sys", model: "gpt-x", effort: "low", input: "do it", tools: [], signal: controller.signal })) events.push(e);
+	assert.deepEqual(events, [{ type: "error", message: "Aborted" }]);
+	assert.equal(closed, true);
+});
