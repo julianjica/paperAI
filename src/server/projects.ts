@@ -3,7 +3,7 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { DATA_DIR, SIDECAR } from "../../config.ts";
 import { isManuscriptFile, SKIP_DIRS } from "../core/manuscript.ts";
-import type { Project } from "../core/types.ts";
+import type { Project, ProjectSettings } from "../core/types.ts";
 import { readJson, writeJson } from "./fsjson.ts";
 
 const FILE = () => path.join(DATA_DIR, "projects.json");
@@ -76,6 +76,29 @@ export function touchProject(id: string): void {
 	if (!p) return;
 	p.openedAt = Date.now();
 	writeJson(FILE(), projects);
+}
+
+const SETTING_KEYS = new Set<keyof ProjectSettings>(["engine", "model", "workerModel", "effort", "workerEffort", "styleNote"]);
+
+/**
+ * Merge per-project overrides. A key present with undefined/null removes that
+ * override (the global default applies again); unknown keys are ignored so a
+ * stray request field never lands in projects.json.
+ */
+export function updateProjectSettings(id: string, patch: ProjectSettings): Project {
+	const projects = readJson<Project[]>(FILE(), []);
+	const p = projects.find((x) => x.id === id);
+	if (!p) throw new Error("No such project");
+	const settings: Record<string, unknown> = { ...(p.settings ?? {}) };
+	for (const [k, v] of Object.entries(patch)) {
+		if (!SETTING_KEYS.has(k as keyof ProjectSettings)) continue;
+		if (v == null || v === "") delete settings[k];
+		else settings[k] = v;
+	}
+	if (Object.keys(settings).length) p.settings = settings as ProjectSettings;
+	else delete p.settings;
+	writeJson(FILE(), projects);
+	return p;
 }
 
 export function removeProject(id: string): void {
