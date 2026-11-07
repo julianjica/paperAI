@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { makePaper } from "./helpers.ts";
 import { writeChat } from "../src/server/chat.ts";
 import { renderCommentBatch } from "../src/core/comments.ts";
-import { addComment, closeStaleSent, listComments, replyToComment, resolveComment, sendPending, deleteComment } from "../src/server/comments.ts";
+import { addComment, closeStaleSent, listComments, replyToComment, resolveComment, sendPending, deleteComment, updateComment } from "../src/server/comments.ts";
 
 test("comments: add → send batch → resolve", () => {
 	const { project } = makePaper();
@@ -60,10 +60,19 @@ test("comment threads: resolve notes, author replies reopen, the batch renders t
 	const round = renderCommentBatch(listComments(project));
 	assert.match(round, /The author replied: Still too long/);
 	assert.match(round, /Request now \(the author's reply\): Thanks, one more pass\./);
+	// Reopened without a new reply (the PATCH route): the original request stands again.
+	resolveComment(project, a.id, "Done.");
+	updateComment(project, a.id, { status: "pending", resolution: undefined, turnId: undefined });
+	assert.match(renderCommentBatch(listComments(project)), /Request now: the author reopened this comment/);
 	// An old comment without `thread` still reads and resolves.
 	const b = addComment(project, { rects: [], page: 1, quote: "q", file: null, line: null, text: "old style" });
 	assert.equal(listComments(project).find((x) => x.id === b.id)?.thread, undefined);
 	assert.match(renderCommentBatch([{ ...b, resolution: "earlier note" }]), /Request: old style/);
+	// A reply on a comment never sent is an addition, not a follow-up: the agent has edited nothing yet.
+	replyToComment(project, b.id, "and fix the citation");
+	const fresh = renderCommentBatch([listComments(project).find((x) => x.id === b.id)!]);
+	assert.doesNotMatch(fresh, /follow-up|already edited/);
+	assert.match(fresh, /Request: old style\n {3}The author added: and fix the citation/);
 });
 
 test("stale sent comments are closed; a turn still streaming keeps its comments", () => {
