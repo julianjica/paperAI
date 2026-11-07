@@ -4,7 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { Streamdown, type PluginConfig } from "streamdown";
 import { createMathPlugin } from "@streamdown/math";
 import { Check, ChevronRight, Clock, HelpCircle, Loader2, Users, Wrench, X } from "lucide-react";
-import type { AssistantPart, ChatMessage, QueuedMessage, ToolCallRecord, TurnRecord, WorkerState } from "@/src/core";
+import { prepareChatMarkdown, type AssistantPart, type ChatMessage, type QueuedMessage, type ToolCallRecord, type TurnRecord, type WorkerState } from "@/src/core";
 import { cn } from "@/lib/utils";
 
 const plugins = { math: createMathPlugin({ singleDollarTextMath: true }) } as unknown as PluginConfig;
@@ -152,7 +152,7 @@ function Part({ part, streaming, answerable, workers, onAnswer }: { part: Assist
 	if (part.kind === "text") {
 		return (
 			<div className="ra-prose">
-				<Streamdown plugins={plugins}>{part.text}</Streamdown>
+				<Streamdown plugins={plugins}>{prepareChatMarkdown(part.text)}</Streamdown>
 			</div>
 		);
 	}

@@ -41,3 +41,14 @@ test("validateTasks rejects shared files, unknown files and empty batches", () =
 	assert.match(validateTasks([{ title: "t1", instructions: "i", files: ["sections/a.tex"] }, { title: "t2", instructions: "i", files: ["./sections/a.tex"] }], files)!, /both edit/);
 	assert.match(validateTasks([{ title: "t", instructions: "i", files: [] }], files)!, /names no files/);
 });
+
+test("prepareChatMarkdown guards < and converts backslash math delimiters, leaving code alone", async () => {
+	const { prepareChatMarkdown } = await import("../src/core/chat-text.ts");
+	assert.equal(prepareChatMarkdown("so $\\sum_{j<k} a_j$ and x<y hold"), "so $\\sum_{j< k} a_j$ and x< y hold");
+	assert.equal(prepareChatMarkdown("a < b stays"), "a < b stays");
+	assert.equal(prepareChatMarkdown("`a<b` and ```\nx<y\n``` then c<d"), "`a<b` and ```\nx<y\n``` then c< d");
+	assert.equal(prepareChatMarkdown("inline \\(a_i<b\\) here"), "inline $a_i< b$ here");
+	assert.equal(prepareChatMarkdown("display \\[\\Pi = \\sum v_i\\] end"), "display \n$$\n\\Pi = \\sum v_i\n$$\n end");
+	assert.equal(prepareChatMarkdown("unclosed \\(a + b"), "unclosed \\(a + b");
+	assert.equal(prepareChatMarkdown("literal \\\\(not math)"), "literal \\\\(not math)");
+});
