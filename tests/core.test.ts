@@ -37,7 +37,10 @@ test("validateTasks rejects shared files, unknown files and empty batches", () =
 	const files = ["main.tex", "sections/a.tex", "sections/b.tex"];
 	assert.equal(validateTasks([], files), "No tasks given.");
 	assert.equal(validateTasks([{ title: "t", instructions: "i", files: ["sections/a.tex"] }], files), null);
-	assert.match(validateTasks([{ title: "t", instructions: "i", files: ["nope.tex"] }], files)!, /not a manuscript file/);
+	// New files inside the folder may be created (figures, scripts, new sections); escaping paths may not.
+	assert.equal(validateTasks([{ title: "t", instructions: "i", files: ["figures/plot.py", "figures/plot.pdf", "sections/new.tex"] }], files), null);
+	assert.match(validateTasks([{ title: "t", instructions: "i", files: ["../other.tex"] }], files)!, /outside the paper folder/);
+	assert.match(validateTasks([{ title: "t", instructions: "i", files: [".researchai/x"] }], files)!, /outside the paper folder/);
 	assert.match(validateTasks([{ title: "t1", instructions: "i", files: ["sections/a.tex"] }, { title: "t2", instructions: "i", files: ["./sections/a.tex"] }], files)!, /both edit/);
 	assert.match(validateTasks([{ title: "t", instructions: "i", files: [] }], files)!, /names no files/);
 });

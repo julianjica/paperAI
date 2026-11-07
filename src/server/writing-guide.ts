@@ -32,6 +32,15 @@ A paper with a false result is worthless, whatever its prose. These rules overri
 - The paragraph after a result never restates it. It does one of: illustrate with numbers from the running example; give the mechanism; qualify it; draw the implication for practice; relate it to the literature.
 - Long derivations and all proofs go to the appendix. The body keeps a one-line pointer ("The formal statement and proof are in the appendix.") and the intuition.
 
+### Figures and tables
+- A figure or table earns its place by showing something the prose cannot say as well: the timing of the game, the running example with its numbers, a comparative static over a parameter, the structure of an equilibrium, or the set of cases of a result. Decorative figures and tables that repeat a sentence are cut.
+- Every figure and table is numbered, has a caption, is referred to in the text before it appears ("Figure~\\ref{fig:timing} shows..."), and is discussed: the paragraph around it says what to look at and what it establishes.
+- Captions: a figure's caption is a short title that names what is plotted and the parameter values used ("Delegated tasks as a function of attention $A$, for $b = 1/2$ and $v = (8, 4, 2, 1)$."). A table's caption names what the rows and columns are; notes under the table define any abbreviation and state the parameter values.
+- Notation in figures and tables is the paper's notation: axis labels use the symbols of the model ($A$, $k^*$), not code names.
+- Tables use booktabs rules (toprule, midrule, bottomrule), no vertical lines, numbers aligned on the decimal point, units in the header, and as few columns as the point needs.
+- Figures are vector (PDF from a script, or TikZ/pgfplots in the source), black-and-white safe, with readable fonts at the printed size, no title inside the plot (the caption is the title), no chart junk.
+- Figures and tables sit at the top of a page or inline near their first reference (\\begin{figure}[t] / [h]); their labels follow the paper's existing scheme (fig:..., tab:...).
+
 ### Prose
 - Plain, direct, continuous argument. Long paragraphs that carry one idea each; sentences that connect with "To see this,", "In particular,", "It follows that", "In other words,", "Note that", "Consider...". Questions are used to frame a section ("But in which direction does this relationship run?").
 - Introduce every symbol where first used, with its meaning. Keep notation to what is needed to state the results; use words where a symbol adds nothing. Reuse the same notation throughout. Defined terms are italicized at the point of definition only.

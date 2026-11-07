@@ -6,9 +6,9 @@ From \eqref{eq:payoff}, $\Pi(K) = (1-b)\sum_i v_i + b \sum_{i \in K} v_i$. The f
 \end{proof}
 
 \begin{proof}[Proof of Proposition~\ref{prop:cutoff}]
-Let $k = |K|$, let $R_k = \sum_{i > k} v_i$ be the importance of the delegated tasks, and let $a = A - k$. Since the manager keeps the most important tasks (by the argument of Proposition~\ref{prop:keep}), her payoff is $\Pi(k) = \sum_i v_i - b e^{-(A-k)} R_k$. Hence
+Let $k = |K|$ and $R_k = \sum_{i > k} v_i$. Since the manager keeps the most important tasks (by the argument of Proposition~\ref{prop:keep}) and devotes the remaining $A - k$ units to monitoring, her payoff is $\Pi(k) = \sum_i v_i - b e^{-(A-k)} R_k$ for $k \leq A$. Hence
 \[
 \Pi(k+1) - \Pi(k) = b e^{-A} e^{k} \left[ R_k - e R_{k+1} \right] = b e^{-A} e^{k} \left[ v_{k+1} - (e-1) R_{k+1} \right],
 \]
-whose sign does not depend on $A$. Let $\hat{k}$ be the smallest $k$ with $v_{k+1} \leq (e-1) R_{k+1}$ (or $\hat{k} = n$ if there is none). Because $R_{k+1}$ decreases in $k$ and $v_{k+1}$ decreases in $k$, the bracket can change sign, so $\hat{k}$ is defined as the first $k$ at which keeping one more task stops paying. The constraint $k \leq A$ then gives $k^* = \min\{\lfloor A \rfloor, \hat{k}\}$, and the number of delegated tasks $n - k^*$ is weakly decreasing in $A$ and constant for $A \geq \hat{k}$.
+whose sign is that of $v_{k+1} - (e-1) R_{k+1}$ and does not depend on $A$. Define $G(k) = \sum_{j < k} e^{j} \left[ v_{j+1} - (e-1) R_{j+1} \right]$, so that $\Pi(k) = \Pi(0) + b e^{-A} G(k)$ and $k^*(A) = \arg\max_{k \leq \min\{n, \lfloor A \rfloor\}} G(k)$, with ties broken toward the smaller $k$ as in the statement. The feasible set $\{0, \dots, \min\{n, \lfloor A \rfloor\}\}$ grows with $A$ and $G$ does not depend on $A$, so the maximizer over a prefix of a fixed sequence is weakly increasing in the prefix length: $k^*(A)$ is weakly increasing in $A$, and $n - k^*(A)$ is weakly decreasing. For $A \geq n$ every $k$ is feasible and $k^*$ is constant.
 \end{proof}

@@ -14,11 +14,11 @@ The intuition is simple. Keeping task $i$ rather than delegating it gains $b v_i
 
 \begin{proposition}
 \label{prop:cutoff}
-With monitoring, there is a cutoff $\hat{k}$, which does not depend on $A$, such that the manager keeps the $\min\{\lfloor A \rfloor, \hat{k}\}$ most important tasks and devotes all remaining attention to monitoring. The number of delegated tasks is weakly decreasing in $A$ and constant once $A \geq \hat{k}$.
+With monitoring, whether keeping one more task pays does not depend on attention: the sign of $\Pi(k+1) - \Pi(k)$ is the sign of $v_{k+1} - (e-1) R_{k+1}$, where $R_{k+1} = \sum_{i > k+1} v_i$ is the importance of the tasks that would remain delegated. Attention matters only through the constraint $k \leq A$. Consequently, breaking ties toward keeping fewer tasks, the number of kept tasks is weakly increasing in $A$, the number of delegated tasks is weakly decreasing in $A$, and both are constant once $A \geq n$.
 \end{proposition}
 
-Attention has two uses, keeping a task and monitoring the delegated ones, and the comparison between them does not involve $A$: keeping one more task recovers its own misalignment loss but removes it from the pool that monitoring improves, and both effects scale with the same factor $e^{-(A-k)}$. Attention therefore only determines how many tasks the manager \emph{can} keep, not how many she \emph{wants} to keep. Once she can afford $\hat{k}$ tasks, every additional unit goes to monitoring. The proof is in Appendix~\ref{app:proofs}.
+Attention has two uses, keeping a task and monitoring the delegated ones, and the comparison between them does not involve $A$: keeping task $k+1$ recovers its own misalignment loss but removes it from the pool that monitoring improves, and both effects scale with the same factor $e^{-(A-k)}$. Attention therefore only determines how many tasks the manager \emph{can} keep, not which trade-off she faces. As $A$ grows, more values of $k$ become feasible and the best of them can only improve, so delegation never rises with attention. The proof is in Appendix~\ref{app:proofs}.
 
 \subsection{Implications for firm boundaries}
 
-A task that is delegated with high residual misalignment is a candidate for outsourcing. Proposition~\ref{prop:cutoff} implies that managerial attention beyond $\hat{k}$ changes how well delegated tasks are run, not which tasks are integrated.
+A task that is delegated with high residual misalignment is a candidate for outsourcing. Proposition~\ref{prop:cutoff} implies that managerial attention affects which tasks are integrated only by relaxing the constraint on how many can be kept; it never makes integration less attractive.

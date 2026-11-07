@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { z } from "zod";
+import { isManuscriptFile } from "../core/manuscript.ts";
 import type { Project, Settings } from "../core/types.ts";
 import type { AppTool } from "../engine/engine.ts";
 import { resolveComment } from "./comments.ts";
@@ -48,18 +51,23 @@ export function askAuthorTool(): AppTool {
 	};
 }
 
-/** Tasks must name disjoint files that exist in the folder. */
-export function validateTasks(tasks: WorkerTask[], existing: string[]): string | null {
+/**
+ * Tasks must name disjoint files: existing manuscript files, or new files to
+ * create inside the folder (figures, scripts, new sections). Paths that leave
+ * the folder or enter the app's sidecar are refused.
+ */
+export function validateTasks(tasks: WorkerTask[], existing: string[], folder?: string): string | null {
 	if (tasks.length === 0) return "No tasks given.";
 	if (tasks.length > 8) return "At most 8 tasks per batch.";
 	const seen = new Map<string, string>();
 	const known = new Set(existing);
 	for (const t of tasks) {
 		if (!t.title?.trim() || !t.instructions?.trim()) return "Every task needs a title and instructions.";
-		if (!t.files?.length) return `Task "${t.title}" names no files. Each task must list the files it may edit.`;
+		if (!t.files?.length) return `Task "${t.title}" names no files. Each task must list the files it may edit or create.`;
 		for (const f of t.files) {
 			const norm = f.replace(/^\.\//, "");
-			if (!known.has(norm)) return `Task "${t.title}": file ${f} is not a manuscript file in this project. Known files: ${existing.join(", ")}`;
+			if (norm.startsWith("/") || norm.split("/").includes("..") || norm.startsWith(".researchai")) return `Task "${t.title}": ${f} is outside the paper folder (or inside .researchai). Use paths relative to the folder.`;
+			if (!known.has(norm) && folder && fs.existsSync(path.join(folder, norm)) && !isManuscriptFile(norm) && !/\.(pdf|png|jpg|jpeg|svg|eps|py|r|jl|csv|tikz)$/i.test(norm)) return `Task "${t.title}": ${f} exists but is not a file workers may edit.`;
 			const other = seen.get(norm);
 			if (other && other !== t.title) return `Tasks "${other}" and "${t.title}" both edit ${f}. Tasks in one batch must edit disjoint files; run them in separate batches instead.`;
 			seen.set(norm, t.title);
@@ -88,7 +96,7 @@ export function delegateTool(project: Project, settings: Settings, turnId: strin
 		handler: async (input) => {
 			const tasks = (input.tasks ?? []) as WorkerTask[];
 			const existing = listManuscriptFiles(project.folder);
-			const problem = validateTasks(tasks, existing);
+			const problem = validateTasks(tasks, existing, project.folder);
 			if (problem) return { text: problem, isError: true };
 			const batch = ++batches;
 			const results = await Promise.all(tasks.map((t) => runWorker(project, settings, turnId, batch, { ...t, files: t.files.map((f) => f.replace(/^\.\//, "")) }, [compileTool(project)], signal)));
