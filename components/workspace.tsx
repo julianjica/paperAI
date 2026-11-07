@@ -245,14 +245,13 @@ export function Workspace({ id }: { id: string }) {
 							</button>
 						))}
 					</nav>
+					{/* Every panel stays mounted: switching tabs keeps the chat draft and scroll positions. */}
 					<div className="flex min-h-0 flex-1 flex-col">
-						{tab === "chat" && (
-							<>
-								<Chat messages={data.chat.messages} running={running} />
-								<Composer running={running} pendingComments={pending} onSend={send} onAbort={() => void api.post(`/api/projects/${id}/abort`)} />
-							</>
-						)}
-						{tab === "comments" && (
+						<div className={cn("flex min-h-0 flex-1 flex-col", tab !== "chat" && "hidden")}>
+							<Chat messages={data.chat.messages} running={running} />
+							<Composer projectId={id} running={running} pendingComments={pending} onSend={send} onAbort={() => void api.post(`/api/projects/${id}/abort`)} />
+						</div>
+						<div className={cn("min-h-0 flex-1", tab !== "comments" && "hidden")}>
 							<CommentsPanel
 								comments={data.comments}
 								activeId={activeComment}
@@ -261,9 +260,13 @@ export function Workspace({ id }: { id: string }) {
 								onDelete={(cid) => void api.del(`/api/projects/${id}/comments/${cid}`)}
 								onSendAll={() => void send("", true)}
 							/>
-						)}
-						{tab === "activity" && <ActivityPanel workers={data.workers} />}
-						{tab === "changes" && <ChangesPanel turns={data.chat.turns} running={running} onRevert={(t) => void revert(t)} />}
+						</div>
+						<div className={cn("min-h-0 flex-1", tab !== "activity" && "hidden")}>
+							<ActivityPanel workers={data.workers} />
+						</div>
+						<div className={cn("min-h-0 flex-1", tab !== "changes" && "hidden")}>
+							<ChangesPanel turns={data.chat.turns} running={running} onRevert={(t) => void revert(t)} />
+						</div>
 					</div>
 				</aside>
 				<div className="group relative w-1.5 shrink-0 cursor-col-resize border-l border-line hover:bg-accent/40" onMouseDown={startResize} title="Drag to resize">

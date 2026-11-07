@@ -1,11 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Send, Square } from "lucide-react";
 
-export function Composer({ running, pendingComments, onSend, onAbort }: { running: boolean; pendingComments: number; onSend: (text: string, sendComments: boolean) => Promise<void>; onAbort: () => void }) {
+export function Composer({ projectId, running, pendingComments, onSend, onAbort }: { projectId: string; running: boolean; pendingComments: number; onSend: (text: string, sendComments: boolean) => Promise<void>; onAbort: () => void }) {
 	const [text, setText] = useState("");
 	const [sendComments, setSendComments] = useState(true);
+	// The unsent draft survives a reload (per project, per tab of the browser).
+	const draftKey = `ra:draft:${projectId}`;
+	useEffect(() => {
+		try {
+			const saved = sessionStorage.getItem(draftKey);
+			if (saved) setText(saved);
+		} catch {
+			// storage unavailable
+		}
+	}, [draftKey]);
+	useEffect(() => {
+		try {
+			if (text) sessionStorage.setItem(draftKey, text);
+			else sessionStorage.removeItem(draftKey);
+		} catch {
+			// ignore
+		}
+	}, [draftKey, text]);
 	const submit = async () => {
 		const t = text.trim();
 		const withComments = sendComments && pendingComments > 0;
