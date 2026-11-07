@@ -105,6 +105,12 @@ body {
 }
 .ra-page canvas { display: block; }
 .ra-page .textLayer ::selection { background: rgba(31, 122, 90, 0.35); }
+/* Dark PDF: invert the page bitmap (hue-rotate keeps colors natural), and let
+   highlights glow on the dark page instead of multiplying into it. */
+.ra-pdf-dark .ra-page { background: #1e1e1e; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
+.ra-pdf-dark .ra-page canvas { filter: invert(0.9) hue-rotate(180deg); }
+.ra-pdf-dark .ra-highlight { mix-blend-mode: screen; opacity: 0.75; }
+.ra-pdf-dark .ra-page .textLayer ::selection { background: rgba(79, 180, 140, 0.45); }
 .ra-highlight {
 	position: absolute;
 	pointer-events: auto;

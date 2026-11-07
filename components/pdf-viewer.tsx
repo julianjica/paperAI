@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Minus, Plus, RefreshCw } from "lucide-react";
+import { Loader2, Minus, Moon, Plus, RefreshCw, Sun } from "lucide-react";
 import type { Comment, PageRect } from "@/src/core";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +61,26 @@ export function PdfViewer({
 	const [status, setStatus] = useState<"loading" | "ready" | "missing" | "error">("loading");
 	const pages = useRef(new Map<number, PageInfo>());
 	const [renderTick, setRenderTick] = useState(0);
+	// Dark PDF: inverts the rendered pages. Remembered per browser; defaults to the OS theme.
+	const [dark, setDark] = useState(false);
+	useEffect(() => {
+		try {
+			const saved = localStorage.getItem("ra:pdf-dark");
+			setDark(saved !== null ? saved === "1" : window.matchMedia("(prefers-color-scheme: dark)").matches);
+		} catch {
+			// storage unavailable: keep the default
+		}
+	}, []);
+	const toggleDark = () => {
+		setDark((d) => {
+			try {
+				localStorage.setItem("ra:pdf-dark", d ? "0" : "1");
+			} catch {
+				// ignore
+			}
+			return !d;
+		});
+	};
 
 	// Load (and reload on every new version), keeping the scroll position.
 	useEffect(() => {
@@ -152,7 +172,9 @@ export function PdfViewer({
 			requestAnimationFrame(() => {
 				if (container.current) container.current.scrollTop = scrollTop;
 			});
-		})();
+		})().catch(() => {
+			// The document was replaced (new compile) while rendering: the newer effect takes over.
+		});
 		return () => {
 			cancelled = true;
 		};
@@ -256,11 +278,14 @@ export function PdfViewer({
 					<Plus size={14} />
 				</button>
 				<span className="ml-auto text-xs">{doc ? `${doc.numPages} page${doc.numPages === 1 ? "" : "s"}` : ""}</span>
+				<button className="rounded p-1 hover:bg-panel-2" onClick={toggleDark} title={dark ? "Light PDF" : "Dark PDF"}>
+					{dark ? <Sun size={14} /> : <Moon size={14} />}
+				</button>
 				<button className={cn("flex items-center gap-1 rounded border border-line px-2 py-0.5 text-xs hover:bg-panel-2", compiling && "opacity-60")} onClick={onCompile} disabled={compiling} title="Recompile">
 					{compiling ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Compile
 				</button>
 			</div>
-			<div ref={container} className="flex-1 overflow-auto bg-bg p-6" onMouseUp={onMouseUp} onClick={() => onSelectComment(null)}>
+			<div ref={container} className={cn("flex-1 overflow-auto bg-bg p-6", dark && "ra-pdf-dark")} onMouseUp={onMouseUp} onClick={() => onSelectComment(null)}>
 				{status === "missing" && <p className="text-center text-ink-muted">No PDF yet. Compile to render the paper.</p>}
 				{status === "error" && <p className="text-center text-danger">Could not load the PDF.</p>}
 				{status === "loading" && !doc && (
