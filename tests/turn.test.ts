@@ -7,7 +7,7 @@ import { setEngine } from "../src/engine/index.ts";
 import { EventChannel, type Engine, type RunOptions } from "../src/engine/engine.ts";
 import type { AgentEvent, ProjectEvent } from "../src/core/types.ts";
 import { compileRuntime } from "../src/server/compile.ts";
-import { startTurn } from "../src/server/turn.ts";
+import { listQueued, removeQueued, startTurn, submit } from "../src/server/turn.ts";
 import { readChat } from "../src/server/chat.ts";
 import { addComment, listComments } from "../src/server/comments.ts";
 import { subscribe } from "../src/server/bus.ts";
@@ -153,4 +153,34 @@ test("an engine error is recorded and the session is dropped", async () => {
 	assert.equal(a.role === "assistant" && a.error, "not signed in");
 	assert.equal(chat.session, undefined);
 	assert.throws(() => startTurn(project, { text: "", sendComments: false }), /Nothing to send/);
+});
+
+test("messages sent during a turn queue up and run in order afterwards", async () => {
+	const { project } = makePaper();
+	const inputs: string[] = [];
+	let release: () => void = () => {};
+	setEngine(
+		"claude-code",
+		scripted(async (o, emit) => {
+			inputs.push(o.input);
+			if (inputs.length === 1) await new Promise<void>((r) => (release = r));
+			emit({ type: "done", text: `answer to ${o.input}` });
+		}, []),
+	);
+	const first = submit(project, { text: "one", sendComments: false });
+	assert.ok("turnId" in first);
+	const second = submit(project, { text: "two", sendComments: false });
+	const third = submit(project, { text: "three", sendComments: false });
+	const fourth = submit(project, { text: "four", sendComments: false });
+	assert.ok("queued" in second && "queued" in third && "queued" in fourth);
+	assert.deepEqual(listQueued(project).map((q) => q.text), ["two", "three", "four"]);
+	assert.equal(removeQueued(project, (third as { queued: { id: string } }).queued.id), true);
+	assert.throws(() => submit(project, { text: "  ", sendComments: false }), /Nothing to send/);
+	release();
+	for (let i = 0; i < 100 && (listQueued(project).length > 0 || inputs.length < 3); i++) await new Promise((r) => setTimeout(r, 10));
+	await new Promise((r) => setTimeout(r, 30));
+	assert.deepEqual(inputs, ["one", "two", "four"]);
+	const chat = readChat(project);
+	assert.deepEqual(chat.messages.filter((m) => m.role === "user").map((m) => (m.role === "user" ? m.text : "")), ["one", "two", "four"]);
+	assert.equal(listQueued(project).length, 0);
 });

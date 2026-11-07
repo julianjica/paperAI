@@ -3,8 +3,8 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Streamdown, type PluginConfig } from "streamdown";
 import { createMathPlugin } from "@streamdown/math";
-import { Check, ChevronRight, HelpCircle, Loader2, Users, Wrench, X } from "lucide-react";
-import type { AssistantPart, ChatMessage, ToolCallRecord, TurnRecord, WorkerState } from "@/src/core";
+import { Check, ChevronRight, Clock, HelpCircle, Loader2, Users, Wrench, X } from "lucide-react";
+import type { AssistantPart, ChatMessage, QueuedMessage, ToolCallRecord, TurnRecord, WorkerState } from "@/src/core";
 import { cn } from "@/lib/utils";
 
 const plugins = { math: createMathPlugin({ singleDollarTextMath: true }) } as unknown as PluginConfig;
@@ -14,21 +14,25 @@ export function Chat({
 	running,
 	workers,
 	currentTurn,
+	queued,
 	onAnswer,
 	onShowActivity,
+	onRemoveQueued,
 }: {
 	messages: ChatMessage[];
 	running: boolean;
 	workers: WorkerState[];
 	currentTurn?: TurnRecord;
+	queued: QueuedMessage[];
 	onAnswer: (text: string) => void;
 	onShowActivity: () => void;
+	onRemoveQueued: (id: string) => void;
 }) {
 	const bottom = useRef<HTMLDivElement>(null);
 	const [stick, setStick] = useState(true);
 	useEffect(() => {
 		if (stick) bottom.current?.scrollIntoView({ block: "end" });
-	}, [messages, workers, stick]);
+	}, [messages, workers, queued, stick]);
 	const last = messages[messages.length - 1];
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
@@ -46,6 +50,20 @@ export function Chat({
 				)}
 				{messages.map((m, i) => (
 					<Message key={m.id} message={m} streaming={running && i === messages.length - 1} last={i === messages.length - 1} workers={m.role === "assistant" ? workers.filter((w) => w.turnId === m.turnId) : []} onAnswer={onAnswer} />
+				))}
+				{queued.map((q, i) => (
+					<div key={q.id} className="mb-2 flex justify-end">
+						<div className="group max-w-[85%] rounded-lg border border-dashed border-line px-3 py-2 text-ink-muted">
+							<div className="mb-0.5 flex items-center gap-2 text-xs">
+								<Clock size={11} /> Queued{queued.length > 1 ? ` #${i + 1}` : ""}
+								{q.sendComments && <span>· with pending comments</span>}
+								<button className="ml-auto opacity-60 hover:text-danger hover:opacity-100" onClick={() => onRemoveQueued(q.id)} title="Remove from the queue">
+									<X size={12} />
+								</button>
+							</div>
+							<div className="whitespace-pre-wrap text-ink">{q.text || "(comments only)"}</div>
+						</div>
+					</div>
 				))}
 				<div ref={bottom} />
 			</div>

@@ -5,7 +5,7 @@ export { compile, pdfPath, servedPdfPath, lastCompile } from "./compile.ts";
 export { locate } from "./synctex.ts";
 export { listComments, addComment, updateComment, deleteComment } from "./comments.ts";
 export { readChat, resetChat } from "./chat.ts";
-export { startTurn, abortTurn, turnRunning } from "./turn.ts";
+export { startTurn, submit, listQueued, removeQueued, abortTurn, turnRunning } from "./turn.ts";
 export { revertToSnapshot, hasSnapshot } from "./snapshots.ts";
 export { listWorkers } from "./workers.ts";
 export { engineAvailable, MODELS } from "../engine/exec.ts";

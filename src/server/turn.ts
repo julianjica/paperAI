@@ -1,12 +1,13 @@
 import { nanoid } from "nanoid";
 import { renderCommentBatch } from "../core/comments.ts";
-import type { AssistantPart, ChatMessage, Comment, Project, Settings, TurnRecord } from "../core/types.ts";
+import type { AssistantPart, ChatMessage, Comment, Project, QueuedMessage, Settings, TurnRecord } from "../core/types.ts";
 import { engineFor } from "../engine/index.ts";
 import { publish } from "./bus.ts";
 import { readChat, writeChat, type ChatRecord } from "./chat.ts";
 import { closeSentComments, listComments, sendPending } from "./comments.ts";
 import { compile } from "./compile.ts";
-import { listManuscriptFiles } from "./projects.ts";
+import { readJson, writeJson } from "./fsjson.ts";
+import { listManuscriptFiles, sidecar } from "./projects.ts";
 import { mainSystemPrompt } from "./prompt.ts";
 import { readSettings } from "./settings.ts";
 import { diffSinceSnapshot, pruneSnapshots, takeSnapshot } from "./snapshots.ts";
@@ -32,6 +33,50 @@ export function abortTurn(projectId: string): boolean {
 
 export interface TurnInput { text: string; sendComments: boolean }
 
+/**
+ * Send a message: starts a turn now, or, while one is running, queues it to
+ * start when the turn ends. Queued messages run in order.
+ */
+export function submit(project: Project, input: TurnInput): { turnId: string } | { queued: QueuedMessage } {
+	if (!active.has(project.id)) return { turnId: startTurn(project, input).turnId };
+	if (!input.text.trim() && !(input.sendComments && listComments(project).some((c) => c.status === "pending"))) throw new Error("Nothing to send.");
+	const queued: QueuedMessage = { id: nanoid(8), text: input.text.trim(), sendComments: input.sendComments, timestamp: Date.now() };
+	writeQueue(project, [...listQueued(project), queued]);
+	return { queued };
+}
+
+// The queue lives in its own file: the running turn rewrites chat.json as it streams.
+const queueFile = (p: Project) => sidecar(p, "queue.json");
+export function listQueued(project: Project): QueuedMessage[] {
+	return readJson<QueuedMessage[]>(queueFile(project), []);
+}
+function writeQueue(project: Project, queued: QueuedMessage[]) {
+	writeJson(queueFile(project), queued);
+	publish(project.id, { type: "queue", queued });
+}
+
+export function removeQueued(project: Project, id: string): boolean {
+	const queued = listQueued(project);
+	const next = queued.filter((q) => q.id !== id);
+	if (next.length === queued.length) return false;
+	writeQueue(project, next);
+	return true;
+}
+
+/** After a turn: start the next queued message, if any. */
+function startNextQueued(project: Project): void {
+	const queued = listQueued(project);
+	const next = queued[0];
+	if (!next) return;
+	writeQueue(project, queued.slice(1));
+	try {
+		startTurn(project, { text: next.text, sendComments: next.sendComments });
+	} catch (error) {
+		console.error("[queue] could not start the next message:", error);
+		startNextQueued(project);
+	}
+}
+
 /** Validate and start a turn; the run continues in the background. Throws synchronously on bad input. */
 export function startTurn(project: Project, input: TurnInput): { turnId: string; done: Promise<TurnRecord> } {
 	if (active.has(project.id)) throw new Error("A turn is already running for this project.");
@@ -44,7 +89,10 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	active.set(project.id, controller);
 	const comments = input.sendComments ? sendPending(project, turnId) : [];
 	const userText = [input.text.trim(), renderCommentBatch(comments)].filter(Boolean).join("\n\n");
-	const done = runTurn(project, input, { settings, turnId, record, comments, userText, controller }).finally(() => active.delete(project.id));
+	const done = runTurn(project, input, { settings, turnId, record, comments, userText, controller }).finally(() => {
+		active.delete(project.id);
+		startNextQueued(project);
+	});
 	return { turnId, done };
 }
 

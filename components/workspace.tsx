@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
-import type { AgentEvent, ChatMessage, Comment, CompileResult, Project, ProjectEvent, TurnRecord, WorkerState } from "@/src/core";
+import type { AgentEvent, ChatMessage, Comment, CompileResult, Project, ProjectEvent, QueuedMessage, TurnRecord, WorkerState } from "@/src/core";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { setFavicon } from "@/lib/favicon";
@@ -24,6 +24,7 @@ interface Loaded {
 	workers: WorkerState[];
 	compile: CompileResult | null;
 	running: boolean;
+	queued: QueuedMessage[];
 }
 
 type Tab = "chat" | "comments" | "activity" | "changes";
@@ -171,6 +172,9 @@ export function Workspace({ id }: { id: string }) {
 				case "comments":
 					setData((d) => (d ? { ...d, comments: ev.comments } : d));
 					break;
+				case "queue":
+					setData((d) => (d ? { ...d, queued: ev.queued } : d));
+					break;
 			}
 		};
 		return () => es.close();
@@ -285,7 +289,16 @@ export function Workspace({ id }: { id: string }) {
 					{/* Every panel stays mounted: switching tabs keeps the chat draft and scroll positions. */}
 					<div className="flex min-h-0 flex-1 flex-col">
 						<div className={cn("flex min-h-0 flex-1 flex-col", tab !== "chat" && "hidden")}>
-							<Chat messages={data.chat.messages} running={running} workers={data.workers} currentTurn={running ? data.chat.turns[data.chat.turns.length - 1] : undefined} onAnswer={(text) => void send(text, false)} onShowActivity={() => setTab("activity")} />
+							<Chat
+								messages={data.chat.messages}
+								running={running}
+								workers={data.workers}
+								currentTurn={running ? data.chat.turns[data.chat.turns.length - 1] : undefined}
+								queued={data.queued}
+								onAnswer={(text) => void send(text, false)}
+								onShowActivity={() => setTab("activity")}
+								onRemoveQueued={(qid) => void api.del(`/api/projects/${id}/queue/${qid}`).catch(() => undefined)}
+							/>
 							<Composer projectId={id} running={running} pendingComments={pending} onSend={send} onAbort={() => void api.post(`/api/projects/${id}/abort`)} />
 						</div>
 						<div className={cn("min-h-0 flex-1", tab !== "comments" && "hidden")}>

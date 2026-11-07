@@ -139,6 +139,14 @@ export interface WorkerState {
 	result?: string;
 }
 
+/** A message sent while a turn was running; it starts when the turn ends. */
+export interface QueuedMessage {
+	id: string;
+	text: string;
+	sendComments: boolean;
+	timestamp: number;
+}
+
 /** Events the workspace subscribes to over SSE (one stream per project). */
 export type ProjectEvent =
 	| { type: "turn_start"; turnId: string }
@@ -146,4 +154,5 @@ export type ProjectEvent =
 	| { type: "turn_end"; turnId: string; turn: TurnRecord }
 	| { type: "worker"; worker: WorkerState }
 	| { type: "compiled"; result: CompileResult }
-	| { type: "comments"; comments: Comment[] };
+	| { type: "comments"; comments: Comment[] }
+	| { type: "queue"; queued: QueuedMessage[] };
