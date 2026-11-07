@@ -26,8 +26,8 @@ function line(w: WorkerState, text: string) {
 export interface WorkerTask { title: string; instructions: string; files: string[] }
 
 /** Run one worker to completion; its state streams to the activity panel. */
-export async function runWorker(project: Project, settings: Settings, turnId: string, task: WorkerTask, tools: AppTool[], signal: AbortSignal): Promise<WorkerState> {
-	const w: WorkerState = { id: nanoid(8), turnId, title: task.title, files: task.files, status: "running", startedAt: Date.now(), activity: [] };
+export async function runWorker(project: Project, settings: Settings, turnId: string, batch: number, task: WorkerTask, tools: AppTool[], signal: AbortSignal): Promise<WorkerState> {
+	const w: WorkerState = { id: nanoid(8), turnId, batch, title: task.title, files: task.files, status: "running", startedAt: Date.now(), activity: [] };
 	remember(project.id, w);
 	publish(project.id, { type: "worker", worker: w });
 	let throttle = 0;

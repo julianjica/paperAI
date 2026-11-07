@@ -94,18 +94,20 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 					break;
 				}
 				case "tool_start":
-					parts.push({ kind: "tool", call: { id: e.id, name: e.name, input: e.input } });
+					parts.push({ kind: "tool", call: { id: e.id, name: e.name, input: e.input, startedAt: Date.now() } });
 					break;
 				case "tool_end": {
 					const part = parts.find((p) => p.kind === "tool" && p.call.id === e.id);
 					if (part?.kind === "tool") {
 						part.call.output = e.output;
 						part.call.isError = e.isError;
+						if (part.call.startedAt) part.call.durationMs = Date.now() - part.call.startedAt;
 					}
 					break;
 				}
 				case "usage":
 					usage = { input: usage.input + e.input, output: usage.output + e.output, cacheRead: usage.cacheRead + e.cacheRead };
+					assistant.usage = usage;
 					break;
 				case "error":
 					if (controller.signal.aborted) assistant.aborted = true;

@@ -3,42 +3,99 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Streamdown, type PluginConfig } from "streamdown";
 import { createMathPlugin } from "@streamdown/math";
-import { ChevronRight, HelpCircle, Loader2, Wrench } from "lucide-react";
-import type { AssistantPart, ChatMessage, ToolCallRecord } from "@/src/core";
+import { Check, ChevronRight, HelpCircle, Loader2, Users, Wrench, X } from "lucide-react";
+import type { AssistantPart, ChatMessage, ToolCallRecord, TurnRecord, WorkerState } from "@/src/core";
 import { cn } from "@/lib/utils";
 
 const plugins = { math: createMathPlugin({ singleDollarTextMath: true }) } as unknown as PluginConfig;
 
-export function Chat({ messages, running, onAnswer }: { messages: ChatMessage[]; running: boolean; onAnswer: (text: string) => void }) {
+export function Chat({
+	messages,
+	running,
+	workers,
+	currentTurn,
+	onAnswer,
+	onShowActivity,
+}: {
+	messages: ChatMessage[];
+	running: boolean;
+	workers: WorkerState[];
+	currentTurn?: TurnRecord;
+	onAnswer: (text: string) => void;
+	onShowActivity: () => void;
+}) {
 	const bottom = useRef<HTMLDivElement>(null);
-	const box = useRef<HTMLDivElement>(null);
 	const [stick, setStick] = useState(true);
 	useEffect(() => {
 		if (stick) bottom.current?.scrollIntoView({ block: "end" });
-	}, [messages, stick]);
+	}, [messages, workers, stick]);
+	const last = messages[messages.length - 1];
 	return (
-		<div
-			ref={box}
-			className="flex-1 overflow-y-auto px-3 py-3"
-			onScroll={(e) => {
-				const el = e.currentTarget;
-				setStick(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
-			}}
-		>
-			{messages.length === 0 && (
-				<div className="mt-10 text-center text-ink-muted">
-					<p>Ask for changes here, or highlight text in the PDF to leave a comment.</p>
-				</div>
-			)}
-			{messages.map((m, i) => (
-				<Message key={m.id} message={m} streaming={running && i === messages.length - 1} last={i === messages.length - 1} onAnswer={onAnswer} />
-			))}
-			<div ref={bottom} />
+		<div className="flex min-h-0 flex-1 flex-col">
+			<div
+				className="flex-1 overflow-y-auto px-3 py-3"
+				onScroll={(e) => {
+					const el = e.currentTarget;
+					setStick(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
+				}}
+			>
+				{messages.length === 0 && (
+					<div className="mt-10 text-center text-ink-muted">
+						<p>Ask for changes here, or highlight text in the PDF to leave a comment.</p>
+					</div>
+				)}
+				{messages.map((m, i) => (
+					<Message key={m.id} message={m} streaming={running && i === messages.length - 1} last={i === messages.length - 1} workers={m.role === "assistant" ? workers.filter((w) => w.turnId === m.turnId) : []} onAnswer={onAnswer} />
+				))}
+				<div ref={bottom} />
+			</div>
+			{running && last?.role === "assistant" && <StatusBar message={last} turn={currentTurn} workers={workers.filter((w) => w.turnId === last.turnId && w.status === "running")} onShowActivity={onShowActivity} />}
 		</div>
 	);
 }
 
-const Message = memo(function Message({ message, streaming, last, onAnswer }: { message: ChatMessage; streaming: boolean; last: boolean; onAnswer: (text: string) => void }) {
+/** Live status while a turn runs: what the agent is doing now, elapsed time, tokens, workers. */
+function StatusBar({ message, turn, workers, onShowActivity }: { message: ChatMessage & { role: "assistant" }; turn?: TurnRecord; workers: WorkerState[]; onShowActivity: () => void }) {
+	const [, tick] = useState(0);
+	useEffect(() => {
+		const t = setInterval(() => tick((n) => n + 1), 1000);
+		return () => clearInterval(t);
+	}, []);
+	const parts = message.parts;
+	const lastPart = parts[parts.length - 1];
+	let phase = "Starting…";
+	if (lastPart?.kind === "tool" && lastPart.call.output === undefined) phase = describeTool(lastPart.call, true);
+	else if (lastPart?.kind === "thinking") phase = "Thinking…";
+	else if (lastPart?.kind === "text") phase = "Writing…";
+	else if (lastPart?.kind === "tool") phase = "Thinking…";
+	if (workers.length > 0) phase = `${workers.length} worker${workers.length === 1 ? "" : "s"} running · ${phase}`;
+	const elapsed = turn ? Math.max(0, Math.round((Date.now() - turn.startedAt) / 1000)) : 0;
+	// Output tokens so far: input/cache counts repeat the whole context on every call.
+	const tokens = message.usage?.output ?? 0;
+	return (
+		<div className="flex items-center gap-2 border-t border-line bg-panel-2 px-3 py-1.5 text-xs text-ink-muted">
+			<Loader2 size={12} className="shrink-0 animate-spin text-accent" />
+			<span className="min-w-0 flex-1 truncate">{phase}</span>
+			{workers.length > 0 && (
+				<button className="flex items-center gap-1 hover:text-ink" onClick={onShowActivity} title="Show workers">
+					<Users size={12} />
+				</button>
+			)}
+			<span className="tabular-nums">{fmtDuration(elapsed * 1000)}</span>
+			{tokens > 0 && <span className="tabular-nums" title="Output tokens this turn">↓ {fmtTokens(tokens)}</span>}
+		</div>
+	);
+}
+
+function fmtDuration(ms: number): string {
+	const s = Math.round(ms / 1000);
+	return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+function fmtTokens(n: number): string {
+	return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
+}
+
+const Message = memo(function Message({ message, streaming, last, workers, onAnswer }: { message: ChatMessage; streaming: boolean; last: boolean; workers: WorkerState[]; onAnswer: (text: string) => void }) {
 	if (message.role === "user") {
 		return (
 			<div className="mb-3 flex justify-end">
@@ -53,14 +110,17 @@ const Message = memo(function Message({ message, streaming, last, onAnswer }: { 
 			</div>
 		);
 	}
+	// The k-th delegate call shows the k-th batch of workers under it.
+	let delegateIndex = 0;
 	return (
 		<div className="mb-4">
-			{message.parts.map((p, i) => (
-				<Part key={i} part={p} answerable={last && !streaming} onAnswer={onAnswer} />
-			))}
+			{message.parts.map((p, i) => {
+				const batch = p.kind === "tool" && p.call.name === "delegate" ? ++delegateIndex : 0;
+				return <Part key={i} part={p} streaming={streaming && i === message.parts.length - 1} answerable={last && !streaming} workers={batch ? workers.filter((w) => w.batch === batch) : []} onAnswer={onAnswer} />;
+			})}
 			{streaming && message.parts.length === 0 && (
 				<div className="flex items-center gap-2 text-ink-muted">
-					<Loader2 size={14} className="animate-spin" /> Thinking…
+					<Loader2 size={14} className="animate-spin" /> Starting…
 				</div>
 			)}
 			{message.error && <div className="mt-1 rounded-md border border-danger/40 bg-danger/10 px-2 py-1 text-danger">{message.error}</div>}
@@ -69,7 +129,7 @@ const Message = memo(function Message({ message, streaming, last, onAnswer }: { 
 	);
 });
 
-function Part({ part, answerable, onAnswer }: { part: AssistantPart; answerable: boolean; onAnswer: (text: string) => void }) {
+function Part({ part, streaming, answerable, workers, onAnswer }: { part: AssistantPart; streaming: boolean; answerable: boolean; workers: WorkerState[]; onAnswer: (text: string) => void }) {
 	if (part.kind === "tool" && part.call.name === "ask_author") return <QuestionCard call={part.call} answerable={answerable} onAnswer={onAnswer} />;
 	if (part.kind === "text") {
 		return (
@@ -78,8 +138,47 @@ function Part({ part, answerable, onAnswer }: { part: AssistantPart; answerable:
 			</div>
 		);
 	}
-	if (part.kind === "thinking") return <Thinking text={part.text} />;
-	return <ToolRow call={part.call} />;
+	if (part.kind === "thinking") return <Thinking text={part.text} live={streaming} />;
+	return (
+		<>
+			<ToolRow call={part.call} />
+			{workers.length > 0 && <WorkerList workers={workers} />}
+		</>
+	);
+}
+
+/** Workers of one delegate call, shown live under it. */
+function WorkerList({ workers }: { workers: WorkerState[] }) {
+	const [, tick] = useState(0);
+	const anyRunning = workers.some((w) => w.status === "running");
+	useEffect(() => {
+		if (!anyRunning) return;
+		const t = setInterval(() => tick((n) => n + 1), 1000);
+		return () => clearInterval(t);
+	}, [anyRunning]);
+	return (
+		<div className="my-1 ml-4 border-l-2 border-line pl-2 text-xs">
+			{workers.map((w) => {
+				const lastLine = w.activity[w.activity.length - 1];
+				return (
+					<div key={w.id} className="py-0.5">
+						<div className="flex items-center gap-1.5">
+							{w.status === "running" ? <Loader2 size={11} className="shrink-0 animate-spin text-accent" /> : w.status === "done" ? <Check size={11} className="shrink-0 text-accent" /> : <X size={11} className="shrink-0 text-danger" />}
+							<span className="font-medium">{w.title}</span>
+							<span className="ml-auto shrink-0 tabular-nums text-ink-muted">{fmtDuration((w.endedAt ?? Date.now()) - w.startedAt)}</span>
+						</div>
+						{w.status === "running" && lastLine && <div className="truncate pl-4 font-mono text-ink-muted">{lastLine}</div>}
+						{w.status !== "running" && w.result && (
+							<details className="pl-4">
+								<summary className="cursor-pointer text-ink-muted">report</summary>
+								<div className="mt-0.5 whitespace-pre-wrap">{w.result}</div>
+							</details>
+						)}
+					</div>
+				);
+			})}
+		</div>
+	);
 }
 
 /** The agent's clarifying question. Buttons answer with that option; free text goes through the composer. */
@@ -106,41 +205,49 @@ function QuestionCard({ call, answerable, onAnswer }: { call: ToolCallRecord; an
 	);
 }
 
-function Thinking({ text }: { text: string }) {
+/** Reasoning: collapsed by default; while it streams, the latest words show as a live preview. */
+function Thinking({ text, live }: { text: string; live: boolean }) {
 	const [open, setOpen] = useState(false);
+	const tail = text.replace(/\s+/g, " ").trim().slice(-160);
 	return (
 		<div className="my-1 text-xs text-ink-muted">
-			<button className="flex items-center gap-1 hover:text-ink" onClick={() => setOpen(!open)}>
-				<ChevronRight size={12} className={cn("transition-transform", open && "rotate-90")} /> Reasoning
+			<button className="flex w-full items-center gap-1 text-left hover:text-ink" onClick={() => setOpen(!open)}>
+				<ChevronRight size={12} className={cn("shrink-0 transition-transform", open && "rotate-90")} />
+				<span className="shrink-0">{live ? "Thinking" : "Reasoning"}</span>
+				{live && !open && <span className="min-w-0 truncate italic opacity-70">{tail}</span>}
 			</button>
 			{open && <div className="mt-1 whitespace-pre-wrap border-l-2 border-line pl-2">{text}</div>}
 		</div>
 	);
 }
 
-function summarize(call: ToolCallRecord): string {
+function describeTool(call: ToolCallRecord, asPhase = false): string {
 	const input = (call.input ?? {}) as Record<string, unknown>;
+	const file = (v: unknown) => String(v ?? "").split("/").slice(-2).join("/");
 	switch (call.name) {
 		case "Read":
+			return asPhase ? `Reading ${file(input.file_path ?? input.path)}` : file(input.file_path ?? input.path);
 		case "Edit":
-		case "Write":
 		case "MultiEdit":
-			return String(input.file_path ?? input.path ?? "");
+			return asPhase ? `Editing ${file(input.file_path ?? input.path)}` : file(input.file_path ?? input.path);
+		case "Write":
+			return asPhase ? `Writing ${file(input.file_path ?? input.path)}` : file(input.file_path ?? input.path);
 		case "Bash":
-			return String(input.command ?? "").slice(0, 100);
+			return asPhase ? `Running: ${String(input.command ?? "").slice(0, 80)}` : String(input.command ?? "").slice(0, 100);
 		case "Grep":
-			return String(input.pattern ?? "");
 		case "Glob":
-			return String(input.pattern ?? "");
+			return asPhase ? `Searching ${String(input.pattern ?? "")}` : String(input.pattern ?? "");
+		case "compile":
+			return asPhase ? "Compiling with latexmk…" : "";
 		case "delegate": {
 			const tasks = (input.tasks as { title?: string }[] | undefined) ?? [];
-			return `${tasks.length} worker${tasks.length === 1 ? "" : "s"}: ${tasks.map((t) => t.title).join(" · ")}`;
+			return asPhase ? `Delegating ${tasks.length} task${tasks.length === 1 ? "" : "s"}` : `${tasks.length} worker${tasks.length === 1 ? "" : "s"}: ${tasks.map((t) => t.title).join(" · ")}`;
 		}
 		case "resolve_comment":
-			return `${input.id ?? ""}: ${String(input.note ?? "").slice(0, 80)}`;
+			return asPhase ? `Resolving comment ${input.id ?? ""}` : `${input.id ?? ""}: ${String(input.note ?? "").slice(0, 80)}`;
 		default: {
 			const s = JSON.stringify(input);
-			return s === "{}" ? "" : s.slice(0, 100);
+			return asPhase ? `${call.name}…` : s === "{}" ? "" : s.slice(0, 100);
 		}
 	}
 }
@@ -148,12 +255,20 @@ function summarize(call: ToolCallRecord): string {
 function ToolRow({ call }: { call: ToolCallRecord }) {
 	const [open, setOpen] = useState(false);
 	const pending = call.output === undefined;
+	const [, tick] = useState(0);
+	useEffect(() => {
+		if (!pending) return;
+		const t = setInterval(() => tick((n) => n + 1), 1000);
+		return () => clearInterval(t);
+	}, [pending]);
+	const elapsed = pending && call.startedAt ? Date.now() - call.startedAt : call.durationMs;
 	return (
 		<div className="my-1 text-xs">
 			<button className={cn("flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-panel-2", call.isError ? "text-danger" : "text-ink-muted")} onClick={() => setOpen(!open)}>
-				{pending ? <Loader2 size={12} className="animate-spin" /> : <Wrench size={12} />}
-				<span className="font-medium">{call.name}</span>
-				<span className="truncate font-mono">{summarize(call)}</span>
+				{pending ? <Loader2 size={12} className="shrink-0 animate-spin text-accent" /> : <Wrench size={12} className="shrink-0" />}
+				<span className="shrink-0 font-medium">{call.name}</span>
+				<span className="min-w-0 truncate font-mono">{describeTool(call)}</span>
+				{elapsed !== undefined && elapsed >= 1000 && <span className="ml-auto shrink-0 tabular-nums opacity-70">{fmtDuration(elapsed)}</span>}
 			</button>
 			{open && (
 				<div className="ml-4 mt-1 max-h-64 overflow-auto rounded border border-line bg-panel-2 p-2 font-mono whitespace-pre-wrap">

@@ -248,7 +248,7 @@ export function Workspace({ id }: { id: string }) {
 					{/* Every panel stays mounted: switching tabs keeps the chat draft and scroll positions. */}
 					<div className="flex min-h-0 flex-1 flex-col">
 						<div className={cn("flex min-h-0 flex-1 flex-col", tab !== "chat" && "hidden")}>
-							<Chat messages={data.chat.messages} running={running} onAnswer={(text) => void send(text, false)} />
+							<Chat messages={data.chat.messages} running={running} workers={data.workers} currentTurn={running ? data.chat.turns[data.chat.turns.length - 1] : undefined} onAnswer={(text) => void send(text, false)} onShowActivity={() => setTab("activity")} />
 							<Composer projectId={id} running={running} pendingComments={pending} onSend={send} onAbort={() => void api.post(`/api/projects/${id}/abort`)} />
 						</div>
 						<div className={cn("min-h-0 flex-1", tab !== "comments" && "hidden")}>
@@ -321,15 +321,20 @@ function applyAgentEvent(messages: ChatMessage[], turnId: string, e: AgentEvent)
 			break;
 		}
 		case "tool_start":
-			parts.push({ kind: "tool", call: { id: e.id, name: e.name, input: e.input } });
+			parts.push({ kind: "tool", call: { id: e.id, name: e.name, input: e.input, startedAt: Date.now() } });
 			break;
 		case "tool_end": {
 			const p = parts.find((x) => x.kind === "tool" && x.call.id === e.id);
 			if (p?.kind === "tool") {
 				p.call.output = e.output;
 				p.call.isError = e.isError;
+				if (p.call.startedAt) p.call.durationMs = Date.now() - p.call.startedAt;
 			}
 			break;
+		}
+		case "usage": {
+			const u = m.usage ?? { input: 0, output: 0, cacheRead: 0 };
+			return messages.map((x, i) => (i === idx ? { ...m, parts, usage: { input: u.input + e.input, output: u.output + e.output, cacheRead: u.cacheRead + e.cacheRead } } : x));
 		}
 		case "error":
 			return messages.map((x, i) => (i === idx ? { ...m, parts, error: e.message } : x));

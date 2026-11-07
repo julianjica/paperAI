@@ -73,6 +73,8 @@ export interface ToolCallRecord {
 	input: unknown;
 	output?: string;
 	isError?: boolean;
+	startedAt?: number;
+	durationMs?: number;
 }
 
 export type ChatMessage =
@@ -125,6 +127,8 @@ export type WorkerStatus = "running" | "done" | "error";
 export interface WorkerState {
 	id: string;
 	turnId: string;
+	/** Which delegate call of the turn started it (1-based), so the chat can show it inline. */
+	batch: number;
 	title: string;
 	files: string[];
 	status: WorkerStatus;

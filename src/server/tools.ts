@@ -69,6 +69,7 @@ export function validateTasks(tasks: WorkerTask[], existing: string[]): string |
 }
 
 export function delegateTool(project: Project, settings: Settings, turnId: string, signal: AbortSignal): AppTool {
+	let batches = 0;
 	return {
 		name: "delegate",
 		description: "Run independent sub-tasks in parallel, each by its own worker agent with file and shell tools in the paper folder. Tasks in one batch must edit DISJOINT files. Blocks until every worker finishes and returns their reports. Workers have no memory of this chat: give complete instructions.",
@@ -89,7 +90,8 @@ export function delegateTool(project: Project, settings: Settings, turnId: strin
 			const existing = listManuscriptFiles(project.folder);
 			const problem = validateTasks(tasks, existing);
 			if (problem) return { text: problem, isError: true };
-			const results = await Promise.all(tasks.map((t) => runWorker(project, settings, turnId, { ...t, files: t.files.map((f) => f.replace(/^\.\//, "")) }, [compileTool(project)], signal)));
+			const batch = ++batches;
+			const results = await Promise.all(tasks.map((t) => runWorker(project, settings, turnId, batch, { ...t, files: t.files.map((f) => f.replace(/^\.\//, "")) }, [compileTool(project)], signal)));
 			const lines = results.map((w, i) => `## Worker ${i + 1}: ${w.title} [${w.status}]\n${w.result ?? "(no report)"}`);
 			const failed = results.filter((w) => w.status === "error");
 			return { text: lines.join("\n\n"), isError: failed.length === results.length && results.length > 0 };
