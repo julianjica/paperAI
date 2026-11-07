@@ -10,7 +10,7 @@ export interface Draft {
 	page: number;
 	rects: PageRect[];
 	quote: string;
-	/** synctex point: PDF points from the page's top-left */
+	/** synctex point on `page` (the first page of the selection): PDF points from the top-left */
 	x: number;
 	y: number;
 	/** where to put the popover, in viewport CSS px */
@@ -209,7 +209,10 @@ export function PdfViewer({
 			const items: { id: string | null; rects: PageRect[]; kind: "pending" | "sent" | "draft" }[] = comments
 				.filter((c) => c.status !== "resolved" && c.rects.some((r) => r.page === n))
 				.map((c) => ({ id: c.id, rects: c.rects.filter((r) => r.page === n), kind: c.status === "sent" ? "sent" : "pending" }));
-			if (draft && draft.page === n) items.push({ id: null, rects: draft.rects, kind: "draft" });
+			if (draft) {
+				const rects = draft.rects.filter((r) => r.page === n);
+				if (rects.length) items.push({ id: null, rects, kind: "draft" });
+			}
 			for (const item of items) {
 				for (const r of item.rects) {
 					const div = document.createElement("div");
@@ -253,12 +256,22 @@ export function PdfViewer({
 		const onUp = () => {
 			for (const layer of root.querySelectorAll(".textLayer.selecting")) layer.classList.remove("selecting");
 		};
+		// As the drag crosses into other pages, their layers join the selection too.
+		const onChange = () => {
+			if (!root.querySelector(".textLayer.selecting")) return;
+			const sel = document.getSelection();
+			if (!sel || sel.rangeCount === 0) return;
+			const range = sel.getRangeAt(0);
+			for (const layer of root.querySelectorAll(".textLayer")) if (range.intersectsNode(layer)) layer.classList.add("selecting");
+		};
 		root.addEventListener("mousedown", onDown);
 		document.addEventListener("pointerup", onUp);
+		document.addEventListener("selectionchange", onChange);
 		window.addEventListener("blur", onUp);
 		return () => {
 			root.removeEventListener("mousedown", onDown);
 			document.removeEventListener("pointerup", onUp);
+			document.removeEventListener("selectionchange", onChange);
 			window.removeEventListener("blur", onUp);
 		};
 	}, [renderTick]);
@@ -275,58 +288,68 @@ export function PdfViewer({
 		const endLayer = layerOf(range.endContainer);
 		// Both ends must sit in text; a drag anchored on blank page or the chat is not a highlight.
 		if (!startLayer || !endLayer) return;
-		const layer = startLayer; // multi-page selections keep the first page
-		const pageEl = layer.closest<HTMLElement>(".ra-page");
-		if (!pageEl) return;
-		const n = Number(pageEl.dataset.page);
-		const info = pages.current.get(n);
-		if (!info) return;
-		const pageBox = pageEl.getBoundingClientRect();
-		const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
 		const raw: PageRect[] = [];
 		let quote = "";
-		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-			if (!range.intersectsNode(node)) continue;
-			const r = document.createRange();
-			r.selectNodeContents(node);
-			if (node === range.startContainer) r.setStart(node, range.startOffset);
-			if (node === range.endContainer) r.setEnd(node, range.endOffset);
-			if (r.collapsed) continue;
-			const text = r.toString();
-			quote += quote && !quote.endsWith(" ") && !text.startsWith(" ") ? ` ${text}` : text;
-			for (const cr of Array.from(r.getClientRects())) {
-				if (cr.width < 1 || cr.height < 1) continue;
-				const rect: PageRect = { page: n, x: (cr.left - pageBox.left) / pageBox.width, y: (cr.top - pageBox.top) / pageBox.height, w: cr.width / pageBox.width, h: cr.height / pageBox.height };
-				// A single line of text is never a sizeable fraction of the page.
-				if (rect.h > 0.08 || rect.w > 0.98) continue;
-				raw.push(rect);
+		let firstInfo: PageInfo | undefined;
+		let firstBox: DOMRect | undefined;
+		for (const layer of Array.from(pagesEl.current?.querySelectorAll<HTMLElement>(".textLayer") ?? [])) {
+			if (!range.intersectsNode(layer)) continue;
+			const pageEl = layer.closest<HTMLElement>(".ra-page");
+			if (!pageEl) continue;
+			const n = Number(pageEl.dataset.page);
+			const info = pages.current.get(n);
+			if (!info) continue;
+			const pageBox = pageEl.getBoundingClientRect();
+			const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
+			for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+				if (!range.intersectsNode(node)) continue;
+				const r = document.createRange();
+				r.selectNodeContents(node);
+				if (node === range.startContainer) r.setStart(node, range.startOffset);
+				if (node === range.endContainer) r.setEnd(node, range.endOffset);
+				if (r.collapsed) continue;
+				const text = r.toString();
+				quote += quote && !quote.endsWith(" ") && !text.startsWith(" ") ? ` ${text}` : text;
+				for (const cr of Array.from(r.getClientRects())) {
+					if (cr.width < 1 || cr.height < 1) continue;
+					const rect: PageRect = { page: n, x: (cr.left - pageBox.left) / pageBox.width, y: (cr.top - pageBox.top) / pageBox.height, w: cr.width / pageBox.width, h: cr.height / pageBox.height };
+					// A single line of text is never a sizeable fraction of the page.
+					if (rect.h > 0.08 || rect.w > 0.98) continue;
+					if (!firstInfo) {
+						firstInfo = info;
+						firstBox = pageBox;
+					}
+					raw.push(rect);
+				}
 			}
 		}
 		quote = quote.replace(/\s+/g, " ").trim();
-		if (!quote || raw.length === 0) return;
+		if (!quote || raw.length === 0 || !firstInfo || !firstBox) return;
 		// Merge rects that sit on the same line (pdf.js emits one per span).
 		const merged: PageRect[] = [];
-		for (const r of raw.sort((a, b) => a.y - b.y || a.x - b.x)) {
+		for (const r of raw.sort((a, b) => a.page - b.page || a.y - b.y || a.x - b.x)) {
 			const last = merged[merged.length - 1];
-			if (last && Math.abs(last.y - r.y) < 0.004 && Math.abs(last.h - r.h) < 0.006) {
+			if (last && last.page === r.page && Math.abs(last.y - r.y) < 0.004 && Math.abs(last.h - r.h) < 0.006) {
 				const right = Math.max(last.x + last.w, r.x + r.w);
 				last.x = Math.min(last.x, r.x);
 				last.w = right - last.x;
 			} else merged.push({ ...r });
 		}
+		// The SyncTeX anchor is the start of the selection; the popover sits at its end.
 		const firstRect = merged[0];
-		const cssX = firstRect.x * pageBox.width + 2;
-		const cssY = (firstRect.y + firstRect.h / 2) * pageBox.height;
-		const [px, py] = info.viewport.convertToPdfPoint(cssX, cssY);
-		const pageHeightPt = info.viewport.height / info.viewport.scale;
+		const cssX = firstRect.x * firstBox.width + 2;
+		const cssY = (firstRect.y + firstRect.h / 2) * firstBox.height;
+		const [px, py] = firstInfo.viewport.convertToPdfPoint(cssX, cssY);
+		const pageHeightPt = firstInfo.viewport.height / firstInfo.viewport.scale;
 		const lastRect = merged[merged.length - 1];
+		const lastBox = pages.current.get(lastRect.page)?.el.getBoundingClientRect() ?? firstBox;
 		onDraft({
-			page: n,
+			page: firstRect.page,
 			rects: merged,
 			quote,
 			x: px,
 			y: pageHeightPt - py,
-			anchor: { left: pageBox.left + (lastRect.x + lastRect.w) * pageBox.width, top: pageBox.top + (lastRect.y + lastRect.h) * pageBox.height },
+			anchor: { left: lastBox.left + (lastRect.x + lastRect.w) * lastBox.width, top: lastBox.top + (lastRect.y + lastRect.h) * lastBox.height },
 		});
 	}, [onDraft]);
 
