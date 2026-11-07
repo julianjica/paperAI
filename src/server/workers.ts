@@ -5,7 +5,9 @@ import type { AppTool } from "../engine/engine.ts";
 import { publish } from "./bus.ts";
 import { workerSystemPrompt } from "./prompt.ts";
 
-const workers = new Map<string, WorkerState[]>(); // projectId → workers (newest last)
+const g = globalThis as unknown as { __raWorkers?: Map<string, WorkerState[]> };
+g.__raWorkers ??= new Map();
+const workers = g.__raWorkers; // projectId → workers (newest last); survives dev-server module reloads
 
 export function listWorkers(projectId: string): WorkerState[] {
 	return workers.get(projectId) ?? [];

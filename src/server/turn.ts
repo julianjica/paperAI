@@ -4,7 +4,7 @@ import type { AssistantPart, ChatMessage, Comment, Project, QueuedMessage, Setti
 import { engineFor } from "../engine/index.ts";
 import { publish } from "./bus.ts";
 import { readChat, writeChat, type ChatRecord } from "./chat.ts";
-import { closeSentComments, listComments, sendPending } from "./comments.ts";
+import { closeSentComments, closeStaleSent, listComments, sendPending } from "./comments.ts";
 import { compile } from "./compile.ts";
 import { readJson, writeJson } from "./fsjson.ts";
 import { listManuscriptFiles, sidecar } from "./projects.ts";
@@ -18,10 +18,19 @@ import { askAuthorTool, compileTool, delegateTool, resolveCommentTool } from "./
  * One turn per project at a time. Events go to the project bus; the SSE
  * route relays them to the workspace.
  */
-const active = new Map<string, AbortController>();
+// Kept on globalThis so a dev-server module reload does not forget a running turn.
+const g = globalThis as unknown as { __raTurns?: { active: Map<string, AbortController>; ids: Map<string, string> } };
+g.__raTurns ??= { active: new Map(), ids: new Map() };
+const active = g.__raTurns.active;
 
 export function turnRunning(projectId: string): boolean {
 	return active.has(projectId);
+}
+
+const activeTurnIds = g.__raTurns.ids;
+/** The id of the turn running for this project, if any. */
+export function activeTurnId(projectId: string): string | undefined {
+	return activeTurnIds.get(projectId);
 }
 
 export function abortTurn(projectId: string): boolean {
@@ -87,10 +96,13 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	if (!input.text.trim() && pending.length === 0) throw new Error("Nothing to send.");
 	const controller = new AbortController();
 	active.set(project.id, controller);
+	activeTurnIds.set(project.id, turnId);
 	const comments = input.sendComments ? sendPending(project, turnId) : [];
 	const userText = [input.text.trim(), renderCommentBatch(comments)].filter(Boolean).join("\n\n");
 	const done = runTurn(project, input, { settings, turnId, record, comments, userText, controller }).finally(() => {
 		active.delete(project.id);
+		activeTurnIds.delete(project.id);
+		closeStaleSent(project, undefined);
 		startNextQueued(project);
 	});
 	return { turnId, done };

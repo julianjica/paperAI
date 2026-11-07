@@ -12,7 +12,9 @@ import { sidecar } from "./projects.ts";
  * waits for the NEXT run; several such requests coalesce into one.
  */
 interface State { running?: Promise<CompileResult>; pending?: Promise<CompileResult>; version: number; last?: CompileResult }
-const states = new Map<string, State>();
+const g = globalThis as unknown as { __raCompile?: Map<string, State> };
+g.__raCompile ??= new Map();
+const states = g.__raCompile; // survives dev-server module reloads
 
 /** Test seam: replace latexmk with a scripted run. */
 export const compileRuntime: { run?: (project: Project) => Promise<{ ok: boolean; errors: string[] }> } = {};

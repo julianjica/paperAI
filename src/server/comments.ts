@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import type { Comment, Project } from "../core/types.ts";
 import { publish } from "./bus.ts";
+import { readChat } from "./chat.ts";
 import { readJson, writeJson } from "./fsjson.ts";
 import { sidecar } from "./projects.ts";
 
@@ -62,6 +63,34 @@ export function closeSentComments(project: Project, turnId: string, note: string
 			c.resolution = note;
 			n++;
 		}
+	}
+	if (n) save(project, comments);
+	return n;
+}
+
+/**
+ * Comments still marked "sent" whose turn is over are stale: their turn ended
+ * without the agent resolving them. Close them with a note so they land in
+ * Resolved instead of hanging between the groups. "Over" is read from the
+ * chat record (the turn has endedAt), not only from memory, so a turn that is
+ * still streaming is never closed under it; a turn with no end that is not
+ * running and is hours old (a crashed server) counts as over too.
+ */
+export function closeStaleSent(project: Project, runningTurnId: string | undefined): number {
+	const comments = listComments(project);
+	if (!comments.some((c) => c.status === "sent")) return 0;
+	const turns = new Map(readChat(project).turns.map((t) => [t.id, t]));
+	const STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+	let n = 0;
+	for (const c of comments) {
+		if (c.status !== "sent") continue;
+		if (c.turnId === runningTurnId) continue;
+		const turn = c.turnId ? turns.get(c.turnId) : undefined;
+		const over = !turn || !!turn.endedAt || Date.now() - turn.startedAt > STALE_AFTER_MS;
+		if (!over) continue;
+		c.status = "resolved";
+		c.resolution = "The turn ended without a note from the agent.";
+		n++;
 	}
 	if (n) save(project, comments);
 	return n;
