@@ -12,7 +12,7 @@ export function CommentsPanel({ comments, activeId, running, onSelect, onDelete,
 		<div className="flex h-full flex-col">
 			<div className="flex items-center gap-2 border-b border-line px-3 py-2">
 				<span className="text-ink-muted">
-					{pending.length} pending · {sent.length} in progress
+					{pending.length} pending{sent.length ? ` · ${sent.length} in progress` : ""}
 				</span>
 				<button className="ml-auto flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-accent-ink disabled:opacity-50" disabled={pending.length === 0 || running} onClick={onSendAll} title="Send every pending comment to the agent as one batch">
 					<Send size={12} /> Send {pending.length > 0 ? pending.length : ""}

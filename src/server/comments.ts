@@ -51,3 +51,18 @@ export function sendPending(project: Project, turnId: string): Comment[] {
 export function resolveComment(project: Project, id: string, resolution: string): boolean {
 	return !!updateComment(project, id, { status: "resolved", resolution });
 }
+
+/** At the end of a turn, comments it carried that the agent never resolved are closed with a note. */
+export function closeSentComments(project: Project, turnId: string, note: string): number {
+	const comments = listComments(project);
+	let n = 0;
+	for (const c of comments) {
+		if (c.status === "sent" && c.turnId === turnId) {
+			c.status = "resolved";
+			c.resolution = note;
+			n++;
+		}
+	}
+	if (n) save(project, comments);
+	return n;
+}

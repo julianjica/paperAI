@@ -125,6 +125,16 @@ test("comments ride along, resolve_comment works, and delegate runs workers with
 	assert.ok(workers.every((w) => w.status === "done"));
 });
 
+test("comments the agent did not resolve are closed when the turn ends", async () => {
+	const { project } = makePaper();
+	addComment(project, { rects: [], page: 1, quote: "q", file: "main.tex", line: 1, text: "please" });
+	setEngine("claude-code", scripted(async (_o, emit) => emit({ type: "done", text: "forgot to resolve" }), []));
+	await startTurn(project, { text: "", sendComments: true }).done;
+	const [c] = listComments(project);
+	assert.equal(c.status, "resolved");
+	assert.match(c.resolution ?? "", /left no note/);
+});
+
 test("an engine error is recorded and the session is dropped", async () => {
 	const { project } = makePaper();
 	setEngine(

@@ -4,7 +4,7 @@ import type { AssistantPart, ChatMessage, Comment, Project, Settings, TurnRecord
 import { engineFor } from "../engine/index.ts";
 import { publish } from "./bus.ts";
 import { readChat, writeChat, type ChatRecord } from "./chat.ts";
-import { listComments, sendPending } from "./comments.ts";
+import { closeSentComments, listComments, sendPending } from "./comments.ts";
 import { compile } from "./compile.ts";
 import { listManuscriptFiles } from "./projects.ts";
 import { mainSystemPrompt } from "./prompt.ts";
@@ -124,6 +124,7 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 		assistant.error = error instanceof Error ? error.message : String(error);
 	}
 	assistant.usage = usage;
+	if (comments.length) closeSentComments(project, turnId, assistant.error ? `The turn failed: ${assistant.error}` : assistant.aborted ? "The turn was stopped before this was addressed." : "Handled in this turn (the agent left no note).");
 	turn.endedAt = Date.now();
 	turn.changes = diffSinceSnapshot(project, turnId);
 	save(true);

@@ -16,7 +16,6 @@
 	--warn: #b4541f;
 	--danger: #b42318;
 	--highlight: rgba(255, 213, 0, 0.45);
-	--highlight-sent: rgba(96, 165, 250, 0.35);
 	--highlight-active: rgba(255, 170, 0, 0.6);
 	--font-ui: ui-sans-serif, -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
 	--font-mono: ui-monospace, "JetBrains Mono", Menlo, monospace;
@@ -33,7 +32,6 @@
 		--accent: #4fb48c;
 		--accent-ink: #0f1f18;
 		--highlight: rgba(255, 213, 0, 0.35);
-		--highlight-sent: rgba(96, 165, 250, 0.3);
 		--highlight-active: rgba(255, 170, 0, 0.5);
 	}
 }

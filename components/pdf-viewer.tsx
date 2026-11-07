@@ -206,9 +206,11 @@ export function PdfViewer({
 			const overlay = info.el.querySelector<HTMLDivElement>(`[data-overlay="${n}"]`);
 			if (!overlay) continue;
 			overlay.replaceChildren();
-			const items: { id: string | null; rects: PageRect[]; kind: "pending" | "sent" | "draft" }[] = comments
-				.filter((c) => c.status !== "resolved" && c.rects.some((r) => r.page === n))
-				.map((c) => ({ id: c.id, rects: c.rects.filter((r) => r.page === n), kind: c.status === "sent" ? "sent" : "pending" }));
+			// Only pending comments are drawn: once sent, the text moves and the
+			// highlight would be stale (and it got in the way of new selections).
+			const items: { id: string | null; rects: PageRect[]; kind: "pending" | "draft" }[] = comments
+				.filter((c) => c.status === "pending" && c.rects.some((r) => r.page === n))
+				.map((c) => ({ id: c.id, rects: c.rects.filter((r) => r.page === n), kind: "pending" }));
 			if (draft) {
 				const rects = draft.rects.filter((r) => r.page === n);
 				if (rects.length) items.push({ id: null, rects, kind: "draft" });
@@ -221,7 +223,7 @@ export function PdfViewer({
 					div.style.top = `${r.y * 100}%`;
 					div.style.width = `${r.w * 100}%`;
 					div.style.height = `${r.h * 100}%`;
-					div.style.background = item.id && item.id === activeCommentId ? "var(--highlight-active)" : item.kind === "sent" ? "var(--highlight-sent)" : "var(--highlight)";
+					div.style.background = item.id && item.id === activeCommentId ? "var(--highlight-active)" : "var(--highlight)";
 					if (item.id) {
 						const id = item.id;
 						div.dataset.comment = id;
