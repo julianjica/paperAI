@@ -69,6 +69,9 @@ test("a turn snapshots, streams, records tool calls, diffs and resumes the sessi
 	assert.deepEqual(chat.session, { engine: "claude-code", id: "sess-1" });
 	assert.equal(calls[0].resume, undefined);
 	assert.ok(calls[0].systemPrompt.includes("sections/intro.tex"));
+	assert.deepEqual(calls[0].tools.map((t) => t.name), ["compile", "resolve_comment", "ask_author", "delegate"]);
+	const ask = await calls[0].tools.find((t) => t.name === "ask_author")!.handler({ question: "Which section?", options: ["Intro", "Model"] });
+	assert.match(ask.text, /End your turn/);
 	// The agent's own compile call plus the post-turn compile.
 	assert.deepEqual(events.map((e) => e.type).filter((t) => t !== "agent"), ["turn_start", "compiled", "compiled", "turn_end"]);
 

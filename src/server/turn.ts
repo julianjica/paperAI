@@ -10,7 +10,7 @@ import { listManuscriptFiles } from "./projects.ts";
 import { mainSystemPrompt } from "./prompt.ts";
 import { readSettings } from "./settings.ts";
 import { diffSinceSnapshot, pruneSnapshots, takeSnapshot } from "./snapshots.ts";
-import { compileTool, delegateTool, resolveCommentTool } from "./tools.ts";
+import { askAuthorTool, compileTool, delegateTool, resolveCommentTool } from "./tools.ts";
 
 /**
  * The turn pipeline: snapshot → run the main agent → diff → compile → persist.
@@ -65,7 +65,7 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 	const files = listManuscriptFiles(project.folder);
 	const engine = engineFor(settings.engine);
 	const resume = record.session?.engine === settings.engine ? record.session.id : undefined;
-	const tools = [compileTool(project), resolveCommentTool(project), delegateTool(project, settings, turnId, controller.signal)];
+	const tools = [compileTool(project), resolveCommentTool(project), askAuthorTool(), delegateTool(project, settings, turnId, controller.signal)];
 	let usage = { input: 0, output: 0, cacheRead: 0 };
 	let lastSave = 0;
 	const save = (force = false) => {

@@ -31,6 +31,23 @@ export function resolveCommentTool(project: Project): AppTool {
 	};
 }
 
+/**
+ * The agent asks the author something and ends its turn. The question is the
+ * tool call itself (rendered as a card in the chat); the answer arrives as the
+ * next user message, with the session resumed.
+ */
+export function askAuthorTool(): AppTool {
+	return {
+		name: "ask_author",
+		description: "Ask the author a clarifying question when the request is ambiguous in a way that changes the work. Ask only what you need, in one call (several questions in one message are fine). After calling this, END YOUR TURN with a one-line note; the answer arrives as the author's next message.",
+		schema: {
+			question: z.string().describe("The question(s), in plain language, with enough context for the author to answer quickly"),
+			options: z.array(z.string()).max(6).optional().describe("Optional short answer choices shown as buttons; the author can always type a free answer"),
+		},
+		handler: async () => ({ text: "Question delivered to the author. End your turn now; do not continue working until the author answers." }),
+	};
+}
+
 /** Tasks must name disjoint files that exist in the folder. */
 export function validateTasks(tasks: WorkerTask[], existing: string[]): string | null {
 	if (tasks.length === 0) return "No tasks given.";

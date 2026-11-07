@@ -248,7 +248,7 @@ export function Workspace({ id }: { id: string }) {
 					{/* Every panel stays mounted: switching tabs keeps the chat draft and scroll positions. */}
 					<div className="flex min-h-0 flex-1 flex-col">
 						<div className={cn("flex min-h-0 flex-1 flex-col", tab !== "chat" && "hidden")}>
-							<Chat messages={data.chat.messages} running={running} />
+							<Chat messages={data.chat.messages} running={running} onAnswer={(text) => void send(text, false)} />
 							<Composer projectId={id} running={running} pendingComments={pending} onSend={send} onAbort={() => void api.post(`/api/projects/${id}/abort`)} />
 						</div>
 						<div className={cn("min-h-0 flex-1", tab !== "comments" && "hidden")}>
