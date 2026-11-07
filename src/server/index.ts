@@ -9,3 +9,4 @@ export { startTurn, abortTurn, turnRunning } from "./turn.ts";
 export { revertToSnapshot, hasSnapshot } from "./snapshots.ts";
 export { listWorkers } from "./workers.ts";
 export { engineAvailable, MODELS } from "../engine/exec.ts";
+export { pickFolder } from "./pick-folder.ts";

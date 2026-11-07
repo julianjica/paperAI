@@ -22,13 +22,22 @@ export function Home() {
 		void refresh();
 	}, []);
 
+	const [picking, setPicking] = useState(false);
 	const pickFolder = async () => {
-		const desktop = (window as unknown as { researchai?: { pickFolder(): Promise<string | null> } }).researchai;
-		if (!desktop) return;
-		const chosen = await desktop.pickFolder();
-		if (chosen) {
-			setFolder(chosen);
-			await scan(chosen);
+		setPicking(true);
+		setError(null);
+		try {
+			const desktop = (window as unknown as { researchai?: { pickFolder(): Promise<string | null> } }).researchai;
+			// Electron has a native dialog; in the browser the server opens one on this machine.
+			const chosen = desktop ? await desktop.pickFolder() : (await api.post<{ folder: string | null }>("/api/pick-folder")).folder;
+			if (chosen) {
+				setFolder(chosen);
+				await scan(chosen);
+			}
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
+		} finally {
+			setPicking(false);
 		}
 	};
 
@@ -66,8 +75,6 @@ export function Home() {
 		void refresh();
 	};
 
-	const hasDesktop = typeof window !== "undefined" && !!(window as unknown as { researchai?: unknown }).researchai;
-
 	return (
 		<div className="h-full overflow-auto">
 			<div className="mx-auto max-w-2xl px-4 py-10">
@@ -83,22 +90,19 @@ export function Home() {
 
 				<section className="rounded-lg border border-line bg-panel p-4">
 					<h2 className="mb-2 font-medium">Open a paper folder</h2>
-					<div className="flex gap-2">
+					<div className="flex items-center gap-3">
+						<button className="flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-accent-ink disabled:opacity-50" disabled={picking} onClick={() => void pickFolder()}>
+							<FolderOpen size={16} /> {picking ? "Choose in the dialog…" : "Browse…"}
+						</button>
+						<span className="text-ink-muted">or paste a path</span>
 						<input
-							className="flex-1 rounded-md border border-line bg-panel-2 px-3 py-1.5"
+							className="min-w-0 flex-1 rounded-md border border-line bg-panel-2 px-3 py-1.5"
 							placeholder="/path/to/paper-folder"
 							value={folder}
 							onChange={(e) => setFolder(e.target.value)}
+							onBlur={() => folder.trim() && void scan()}
 							onKeyDown={(e) => e.key === "Enter" && void scan()}
 						/>
-						{hasDesktop && (
-							<button className="rounded-md border border-line px-3 py-1.5 hover:bg-panel-2" onClick={() => void pickFolder()} title="Choose a folder">
-								<FolderOpen size={16} />
-							</button>
-						)}
-						<button className="rounded-md border border-line px-3 py-1.5 hover:bg-panel-2" onClick={() => void scan()}>
-							Scan
-						</button>
 					</div>
 					{candidates && candidates.length > 0 && (
 						<div className="mt-3 flex items-center gap-2">

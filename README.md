@@ -62,8 +62,8 @@ npm run dev
 ```
 
 Open the URL printed by `next dev` (normally `http://localhost:3000`). To try it right away,
-open the sample paper that ships with the repo: enter the path to `examples/sample-paper`,
-press **Scan**, and **Open**.
+open the sample paper that ships with the repo: press **Browse…**, choose
+`examples/sample-paper`, and **Open**.
 
 Desktop window instead of a browser tab:
 
@@ -73,8 +73,9 @@ npm run desktop:dev   # next dev + Electron, with a native "Open folder" dialog
 
 ## Using the app
 
-1. **Open a paper.** Type (or pick) the folder, press Scan, choose the main `.tex` when the
-   folder holds several, and Open. The app compiles once so the PDF is fresh.
+1. **Open a paper.** Press **Browse…** and choose the folder in the native dialog (or paste a
+   path). Pick the main `.tex` when the folder holds several, and Open. The app compiles once
+   so the PDF is fresh.
 2. **Set the engine and models** (gear icon): Claude Code or Codex, the main-agent model, the
    worker model, and effort levels. Only CLIs found on your machine are offered.
 3. **Chat.** Type a request and press Enter. The agent reads and edits files, compiles, and
