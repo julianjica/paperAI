@@ -104,6 +104,9 @@ body {
 	margin: 0 auto 16px;
 }
 .ra-page canvas { display: block; }
+/* Only the text layer is selectable: a drag can never anchor on the canvas or overlay. */
+.ra-page { user-select: none; -webkit-user-select: none; }
+.ra-page .textLayer :is(span, br) { user-select: text; -webkit-user-select: text; }
 .ra-page .textLayer ::selection { background: rgba(31, 122, 90, 0.35); }
 /* Dark PDF: invert the page bitmap (hue-rotate keeps colors natural), and let
    highlights glow on the dark page instead of multiplying into it. */

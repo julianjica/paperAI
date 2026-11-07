@@ -148,6 +148,8 @@ export function PdfViewer({
 				const textLayer = document.createElement("div");
 				textLayer.className = "textLayer";
 				el.appendChild(textLayer);
+				const endOfContent = document.createElement("div");
+				endOfContent.className = "endOfContent";
 				const overlay = document.createElement("div");
 				overlay.className = "ra-overlay absolute inset-0 pointer-events-none";
 				overlay.dataset.overlay = String(n);
@@ -163,6 +165,7 @@ export function PdfViewer({
 					if (cancelled) return;
 					const layer = new pdfjs.TextLayer({ textContentSource: textContent, container: textLayer, viewport });
 					await layer.render();
+					textLayer.appendChild(endOfContent);
 				}).catch(() => undefined);
 			}
 			if (cancelled) return;
@@ -220,32 +223,75 @@ export function PdfViewer({
 		el?.scrollIntoView({ block: "center", behavior: "smooth" });
 	}, [activeCommentId, renderTick]);
 
-	// Turn a text selection into a draft.
+	// Selection stability (pdf.js's own trick): while the pointer is down inside a
+	// text layer, an "endOfContent" element covers the page so the selection stays
+	// anchored inside that layer instead of jumping to the canvas or other pages.
+	useEffect(() => {
+		const root = pagesEl.current;
+		if (!root) return;
+		const onDown = (e: MouseEvent) => {
+			const layer = (e.target as Element | null)?.closest?.(".textLayer");
+			if (layer) layer.classList.add("selecting");
+		};
+		const onUp = () => {
+			for (const layer of root.querySelectorAll(".textLayer.selecting")) layer.classList.remove("selecting");
+		};
+		root.addEventListener("mousedown", onDown);
+		document.addEventListener("pointerup", onUp);
+		window.addEventListener("blur", onUp);
+		return () => {
+			root.removeEventListener("mousedown", onDown);
+			document.removeEventListener("pointerup", onUp);
+			window.removeEventListener("blur", onUp);
+		};
+	}, [renderTick]);
+
+	// Turn a text selection into a draft. Rects come from the selected TEXT only
+	// (never from element boxes: a range that touches the layer container would
+	// otherwise contribute a page-sized rectangle).
 	const onMouseUp = useCallback(() => {
 		const sel = window.getSelection();
 		if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
 		const range = sel.getRangeAt(0);
-		const quote = sel.toString().trim();
-		if (!quote) return;
-		const startEl = (range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement)?.closest<HTMLElement>(".ra-page");
-		if (!startEl) return;
-		const n = Number(startEl.dataset.page);
+		const layerOf = (node: Node) => (node instanceof Element ? node : node.parentElement)?.closest<HTMLElement>(".textLayer") ?? null;
+		const startLayer = layerOf(range.startContainer);
+		const endLayer = layerOf(range.endContainer);
+		// Both ends must sit in text; a drag anchored on blank page or the chat is not a highlight.
+		if (!startLayer || !endLayer) return;
+		const layer = startLayer; // multi-page selections keep the first page
+		const pageEl = layer.closest<HTMLElement>(".ra-page");
+		if (!pageEl) return;
+		const n = Number(pageEl.dataset.page);
 		const info = pages.current.get(n);
 		if (!info) return;
-		const pageBox = startEl.getBoundingClientRect();
-		const rects: PageRect[] = [];
-		for (const r of Array.from(range.getClientRects())) {
-			if (r.width < 1 || r.height < 1) continue;
-			// Only rects on the start page (multi-page selections keep the first page).
-			if (r.top < pageBox.top - 2 || r.bottom > pageBox.bottom + 2) continue;
-			rects.push({ page: n, x: (r.left - pageBox.left) / pageBox.width, y: (r.top - pageBox.top) / pageBox.height, w: r.width / pageBox.width, h: r.height / pageBox.height });
+		const pageBox = pageEl.getBoundingClientRect();
+		const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
+		const raw: PageRect[] = [];
+		let quote = "";
+		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+			if (!range.intersectsNode(node)) continue;
+			const r = document.createRange();
+			r.selectNodeContents(node);
+			if (node === range.startContainer) r.setStart(node, range.startOffset);
+			if (node === range.endContainer) r.setEnd(node, range.endOffset);
+			if (r.collapsed) continue;
+			const text = r.toString();
+			quote += quote && !quote.endsWith(" ") && !text.startsWith(" ") ? ` ${text}` : text;
+			for (const cr of Array.from(r.getClientRects())) {
+				if (cr.width < 1 || cr.height < 1) continue;
+				const rect: PageRect = { page: n, x: (cr.left - pageBox.left) / pageBox.width, y: (cr.top - pageBox.top) / pageBox.height, w: cr.width / pageBox.width, h: cr.height / pageBox.height };
+				// A single line of text is never a sizeable fraction of the page.
+				if (rect.h > 0.08 || rect.w > 0.98) continue;
+				raw.push(rect);
+			}
 		}
-		if (rects.length === 0) return;
+		quote = quote.replace(/\s+/g, " ").trim();
+		if (!quote || raw.length === 0) return;
 		// Merge rects that sit on the same line (pdf.js emits one per span).
 		const merged: PageRect[] = [];
-		for (const r of rects.sort((a, b) => a.y - b.y || a.x - b.x)) {
+		for (const r of raw.sort((a, b) => a.y - b.y || a.x - b.x)) {
 			const last = merged[merged.length - 1];
-			if (last && Math.abs(last.y - r.y) < 0.004 && Math.abs(last.h - r.h) < 0.004) {
+			if (last && Math.abs(last.y - r.y) < 0.004 && Math.abs(last.h - r.h) < 0.006) {
 				const right = Math.max(last.x + last.w, r.x + r.w);
 				last.x = Math.min(last.x, r.x);
 				last.w = right - last.x;
