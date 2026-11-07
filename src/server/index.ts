@@ -3,7 +3,7 @@ export { listProjects, getProject, addProject, touchProject, removeProject, list
 export { subscribe, publish } from "./bus.ts";
 export { compile, pdfPath, servedPdfPath, lastCompile } from "./compile.ts";
 export { locate } from "./synctex.ts";
-export { listComments, addComment, updateComment, deleteComment } from "./comments.ts";
+export { listComments, addComment, updateComment, deleteComment, replyToComment } from "./comments.ts";
 export { readChat, resetChat } from "./chat.ts";
 export { startTurn, submit, listQueued, removeQueued, abortTurn, turnRunning, activeTurnId } from "./turn.ts";
 export { closeStaleSent } from "./comments.ts";

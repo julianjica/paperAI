@@ -72,6 +72,10 @@ Highlight in the PDF text layer → popover → comment {id, page, rects, quote,
 pending|sent|resolved, resolution}. "Send N comments" button sends all pending ones as one turn.
 file:line via `synctex edit -o page:x:y:<pdf>`; x,y in PDF points from the top-left of the page.
 Highlights are drawn as overlays; resolved comments hide their highlight.
+Threads: `thread` holds the exchange after the original request (author replies, agent notes) in
+order; `text` and `resolution` stay for old files. A reply (POST .../comments/:cid/reply) sets the
+comment back to pending so it rides with the next batch, rendered to the agent as a follow-up with
+its history; every closer (resolve_comment and the end-of-turn fallbacks) also notes on the thread.
 
 ## Verification
 - Tests (no LLM): synctex output parsing, snapshot/diff/revert, comments store, turn pipeline with a

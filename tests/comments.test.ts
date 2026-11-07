@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makePaper } from "./helpers.ts";
 import { writeChat } from "../src/server/chat.ts";
-import { addComment, closeStaleSent, listComments, resolveComment, sendPending, deleteComment } from "../src/server/comments.ts";
+import { renderCommentBatch } from "../src/core/comments.ts";
+import { addComment, closeStaleSent, listComments, replyToComment, resolveComment, sendPending, deleteComment } from "../src/server/comments.ts";
 
 test("comments: add → send batch → resolve", () => {
 	const { project } = makePaper();
@@ -20,6 +21,49 @@ test("comments: add → send batch → resolve", () => {
 	assert.equal(after.find((c) => c.id === a.id)?.resolution, "done");
 	deleteComment(project, b.id);
 	assert.equal(listComments(project).length, 1);
+});
+
+test("comment threads: resolve notes, author replies reopen, the batch renders the history", () => {
+	const { project } = makePaper();
+	const a = addComment(project, { rects: [], page: 2, quote: "the  lemma", file: "main.tex", line: 5, text: "tighten this" });
+	// A comment without a thread renders exactly as before.
+	assert.equal(renderCommentBatch([a]).split("\n").slice(2).join("\n"), '1. [comment ' + a.id + '] at main.tex:5\n   Highlighted: "the lemma"\n   Request: tighten this');
+	sendPending(project, "t1");
+	resolveComment(project, a.id, "Shortened the proof.");
+	let c = listComments(project)[0];
+	assert.equal(c.status, "resolved");
+	assert.equal(c.resolution, "Shortened the proof.");
+	assert.deepEqual(c.thread?.map((e) => [e.role, e.text]), [["agent", "Shortened the proof."]]);
+	// The author's reply reopens the comment for the next batch.
+	const replied = replyToComment(project, a.id, "Still too long, cut the second case.");
+	assert.equal(replied?.status, "pending");
+	assert.equal(replied?.turnId, undefined);
+	assert.equal(replyToComment(project, "nope", "x"), undefined);
+	c = listComments(project)[0];
+	assert.equal(c.status, "pending");
+	assert.equal(c.text, "tighten this");
+	assert.deepEqual(c.thread?.map((e) => e.role), ["agent", "author"]);
+	assert.deepEqual(sendPending(project, "t2").map((x) => x.id), [a.id]);
+	// The agent sees the whole exchange and the last reply as the thing to act on.
+	const text = renderCommentBatch(listComments(project));
+	assert.match(text, /follow-up on a passage you already edited/);
+	assert.match(text, /\[comment [^\]]+\] at main\.tex:5 \(follow-up\)/);
+	const idx = (s: string) => text.indexOf(s);
+	assert.ok(idx("Original request: tighten this") > 0);
+	assert.ok(idx("You replied: Shortened the proof.") > idx("Original request:"));
+	assert.ok(idx("Request now (the author's reply): Still too long, cut the second case.") > idx("You replied:"));
+	assert.doesNotMatch(text, /^ {3}Request: /m);
+	// A second round appends in order and the fallback closer also notes on the thread.
+	resolveComment(project, a.id, "Cut it.");
+	replyToComment(project, a.id, "Thanks, one more pass.");
+	assert.deepEqual(listComments(project)[0].thread?.map((e) => e.role), ["agent", "author", "agent", "author"]);
+	const round = renderCommentBatch(listComments(project));
+	assert.match(round, /The author replied: Still too long/);
+	assert.match(round, /Request now \(the author's reply\): Thanks, one more pass\./);
+	// An old comment without `thread` still reads and resolves.
+	const b = addComment(project, { rects: [], page: 1, quote: "q", file: null, line: null, text: "old style" });
+	assert.equal(listComments(project).find((x) => x.id === b.id)?.thread, undefined);
+	assert.match(renderCommentBatch([{ ...b, resolution: "earlier note" }]), /Request: old style/);
 });
 
 test("stale sent comments are closed; a turn still streaming keeps its comments", () => {

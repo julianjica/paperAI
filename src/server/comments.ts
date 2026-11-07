@@ -49,8 +49,39 @@ export function sendPending(project: Project, turnId: string): Comment[] {
 	return sent;
 }
 
+/**
+ * Close a comment with a note. The note goes both into `resolution` (what old
+ * clients read) and onto the thread as an agent entry, so a follow-up shows
+ * the whole exchange in order, including notes left by the fallback closers.
+ */
+function close(c: Comment, note: string) {
+	c.status = "resolved";
+	c.resolution = note;
+	(c.thread ??= []).push({ role: "agent", text: note, at: Date.now() });
+}
+
 export function resolveComment(project: Project, id: string, resolution: string): boolean {
-	return !!updateComment(project, id, { status: "resolved", resolution });
+	const comments = listComments(project);
+	const c = comments.find((x) => x.id === id);
+	if (!c) return false;
+	close(c, resolution);
+	save(project, comments);
+	return true;
+}
+
+/**
+ * The author answers the agent's note (or adds to the request). The comment
+ * goes back to pending so it rides with the next batch as a follow-up.
+ */
+export function replyToComment(project: Project, id: string, text: string): Comment | undefined {
+	const comments = listComments(project);
+	const c = comments.find((x) => x.id === id);
+	if (!c) return undefined;
+	(c.thread ??= []).push({ role: "author", text, at: Date.now() });
+	c.status = "pending";
+	delete c.turnId;
+	save(project, comments);
+	return c;
 }
 
 /** At the end of a turn, comments it carried that the agent never resolved are closed with a note. */
@@ -59,8 +90,7 @@ export function closeSentComments(project: Project, turnId: string, note: string
 	let n = 0;
 	for (const c of comments) {
 		if (c.status === "sent" && c.turnId === turnId) {
-			c.status = "resolved";
-			c.resolution = note;
+			close(c, note);
 			n++;
 		}
 	}
@@ -88,8 +118,7 @@ export function closeStaleSent(project: Project, runningTurnId: string | undefin
 		const turn = c.turnId ? turns.get(c.turnId) : undefined;
 		const over = !turn || !!turn.endedAt || Date.now() - turn.startedAt > STALE_AFTER_MS;
 		if (!over) continue;
-		c.status = "resolved";
-		c.resolution = "The turn ended without a note from the agent.";
+		close(c, "The turn ended without a note from the agent.");
 		n++;
 	}
 	if (n) save(project, comments);

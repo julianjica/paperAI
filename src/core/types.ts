@@ -35,6 +35,13 @@ export interface PageRect {
 
 export type CommentStatus = "pending" | "sent" | "resolved";
 
+/** One later message in a comment's conversation: the author's reply or the agent's note. */
+export interface ThreadEntry {
+	role: "author" | "agent";
+	text: string;
+	at: number;
+}
+
 export interface Comment {
 	id: string;
 	createdAt: number;
@@ -51,8 +58,10 @@ export interface Comment {
 	status: CommentStatus;
 	/** The turn that carried it to the agent. */
 	turnId?: string;
-	/** The agent's note when it resolved the comment. */
+	/** The agent's latest note (also the last agent entry of `thread`). Kept so old comments.json files still read. */
 	resolution?: string;
+	/** The exchange after the original request, in order: author replies and agent notes. Absent on old comments. */
+	thread?: ThreadEntry[];
 }
 
 /** Events an engine run emits. Both engines produce exactly this stream. */
