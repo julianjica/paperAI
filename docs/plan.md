@@ -112,6 +112,9 @@ sessions resume per project only while the engine stays the same; multi-page sel
 first page only.
 
 ## Writing standard (2026-11-07)
+Correctness is a MUST: no formal statement, proof, intuition, example or implication goes into the paper
+unless the agent has verified it (derivation plus a numerical check); a false result or a proof gap is
+reported with a counterexample and sent to the author through `ask_author`, never papered over.
 Agent edits read as artificial unless they follow the conventions of well-presented formal theory
 papers. `src/server/writing-guide.ts` distils those conventions (shape of the paper; how propositions,
 definitions and the paragraph after a result are written; prose habits; what reads as artificial; how to

@@ -39,7 +39,7 @@ export function resolveCommentTool(project: Project): AppTool {
 export function askAuthorTool(): AppTool {
 	return {
 		name: "ask_author",
-		description: "Ask the author a clarifying question when the request is ambiguous in a way that changes the work. Ask only what you need, in one call (several questions in one message are fine). After calling this, END YOUR TURN with a one-line note; the answer arrives as the author's next message.",
+		description: "Ask the author a clarifying question when the request is ambiguous in a way that changes the work, or when you found that a result in the manuscript is false or a proof has a gap (explain what fails, with numbers, and offer the options). Ask only what you need, in one call (several questions in one message are fine). After calling this, END YOUR TURN with a one-line note; the answer arrives as the author's next message.",
 		schema: {
 			question: z.string().describe("The question(s), in plain language, with enough context for the author to answer quickly"),
 			options: z.array(z.string()).max(6).optional().describe("Optional short answer choices shown as buttons; the author can always type a free answer"),

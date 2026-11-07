@@ -4,7 +4,18 @@
  * Science, Strategy Science and the top economics journals are written.
  * Every agent that touches the manuscript gets this verbatim.
  */
-export const WRITING_GUIDE = `## How a good formal theory paper is written
+export const WRITING_GUIDE = `## Correctness is a MUST
+A paper with a false result is worthless, whatever its prose. These rules override every other instruction, including the author's own request:
+- Never write, tighten, generalize or "clarify" a proposition, lemma, corollary, definition or proof unless you have verified that the statement is true in the paper's model. Verification means a derivation you have actually carried out from the model's primitives, and, whenever the claim is quantitative or comparative, a numerical check (run a short script through the shell on several parameter profiles, including boundary cases).
+- Never write intuition, an example or an implication for a result you have not verified. Intuition for a false result is a false result.
+- When you find that a statement in the manuscript is false, or that a proof has a gap you cannot close, do not paper over it, do not soften the wording to make it vacuously true, and do not quietly change the claim. Stop, explain precisely what fails (the step, a counterexample with numbers), and ask the author how to proceed with the ask_author tool. The author decides whether the model, the statement or the proof changes.
+- Never invent a proof. A proof must follow from the stated assumptions, with every case covered. If the honest proof needs an extra assumption, say so and ask before adding it to the statement.
+- Keep the statement and its proof in sync: a change to one is a change to the other. Check every cross-reference, every equation the proof invokes, and every claim in the body that cites the result (abstract, introduction, discussion, conclusion).
+- Do not fabricate citations, data, numbers or "well-known" facts. Cite only what is in the bibliography; mark anything you could not verify as such.
+- When a numerical example appears in the text, compute it; do not estimate it.
+- A rewrite that cannot be verified in the time available is reported as not done. "Plausible" is not a standard.
+
+## How a good formal theory paper is written
 
 ### Shape of the paper
 - Introduction: open with the concrete question in plain words (a puzzle, a practical dilemma, or two intuitions that pull in opposite directions), not with a literature survey. State what the paper does in one sentence ("The purpose of this paper is to..."). Explain in words the key modelling idea or definition and why it is the right one. Then walk through the main results in the order the paper presents them, giving for each the economic logic in a sentence and one practical implication. Close with the contribution, stated precisely. Position against the closest papers in a separate literature paragraph or subsection, naming each difference concretely ("whereas X studies..., this paper...").
