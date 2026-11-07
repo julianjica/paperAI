@@ -6,6 +6,7 @@ import type { Project } from "@/src/core";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 import { SettingsDialog } from "@/components/settings-dialog";
+import { setFavicon } from "@/lib/favicon";
 
 export function Home() {
 	const [projects, setProjects] = useState<Project[]>([]);
@@ -20,6 +21,7 @@ export function Home() {
 	const refresh = () => api.get<{ projects: Project[] }>("/api/projects").then((r) => setProjects(r.projects)).catch(() => undefined);
 	useEffect(() => {
 		void refresh();
+		setFavicon("idle");
 	}, []);
 
 	const [picking, setPicking] = useState(false);

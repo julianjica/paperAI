@@ -5,6 +5,7 @@ import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
 import type { AgentEvent, ChatMessage, Comment, CompileResult, Project, ProjectEvent, TurnRecord, WorkerState } from "@/src/core";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { setFavicon } from "@/lib/favicon";
 import { Chat } from "@/components/chat";
 import { Composer } from "@/components/composer";
 import { PdfViewer, type Draft } from "@/components/pdf-viewer";
@@ -77,6 +78,42 @@ export function Workspace({ id }: { id: string }) {
 		window.addEventListener("mousemove", onMove);
 		window.addEventListener("mouseup", onUp);
 	};
+
+	// Tab state: pulsing icon while a turn runs, a check when it finishes (cleared when you come back).
+	const wasRunning = useRef(false);
+	useEffect(() => {
+		const running = data?.running ?? false;
+		const name = data?.project.name ?? "researchAI";
+		if (running) {
+			wasRunning.current = true;
+			setFavicon("working");
+			document.title = `● Working · ${name}`;
+			return;
+		}
+		if (wasRunning.current) {
+			wasRunning.current = false;
+			setFavicon("done");
+			document.title = `✓ Done · ${name}`;
+			const clear = () => {
+				if (document.visibilityState !== "visible") return;
+				setFavicon("idle");
+				document.title = name;
+				document.removeEventListener("visibilitychange", clear);
+				window.removeEventListener("focus", clear);
+			};
+			document.addEventListener("visibilitychange", clear);
+			window.addEventListener("focus", clear);
+			// Already looking at it: keep the check for a few seconds, then settle.
+			const t = setTimeout(() => document.visibilityState === "visible" && document.hasFocus() && clear(), 6000);
+			return () => {
+				clearTimeout(t);
+				document.removeEventListener("visibilitychange", clear);
+				window.removeEventListener("focus", clear);
+			};
+		}
+		setFavicon("idle");
+		document.title = name;
+	}, [data?.running, data?.project.name]);
 
 	const load = useCallback(async () => {
 		try {
