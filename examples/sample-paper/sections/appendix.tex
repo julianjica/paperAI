@@ -1,0 +1,10 @@
+\section{Proofs}
+\label{app:proofs}
+
+\begin{proof}[Proof of Proposition~\ref{prop:keep}]
+From \eqref{eq:payoff}, $\Pi(K) = (1-b)\sum_i v_i + b \sum_{i \in K} v_i$. The first term does not depend on $K$, so the manager maximizes $\sum_{i \in K} v_i$ subject to $|K| \leq A$. Since the $v_i$ are ordered, the maximizer is the set of the $\min\{n, \lfloor A \rfloor\}$ largest $v_i$.
+\end{proof}
+
+\begin{proof}[Proof of Proposition~\ref{prop:nonmonotone}]
+Let $k = |K|$ and $a = A - k$. The payoff is $\sum_{i \leq k} v_i + (1 - b e^{-(A-k)}) \sum_{i > k} v_i$. The marginal value of keeping one more task is $b e^{-(A-k)} v_{k+1} - b e^{-(A-k)} \sum_{i > k+1} v_i$, which is positive for small $A$ (where $e^{-(A-k)}$ is close to one and $v_{k+1}$ is large) and negative for large $A$. Hence $k$ first rises and then falls with $A$, so $n - k$ is non-monotone.
+\end{proof}

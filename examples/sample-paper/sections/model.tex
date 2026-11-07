@@ -1,0 +1,12 @@
+\section{Model}
+\label{sec:model}
+
+A manager faces $n$ tasks indexed by $i \in \{1, \dots, n\}$. Task $i$ has importance $v_i > 0$, ordered so that $v_1 \geq v_2 \geq \dots \geq v_n$. The manager has attention capacity $A > 0$. Attending to task $i$ costs one unit of attention and yields payoff $v_i$. Delegating task $i$ costs no attention and yields $(1 - b) v_i$, where $b \in (0,1)$ measures the subordinate's misalignment.
+
+The manager chooses a set $K \subseteq \{1, \dots, n\}$ of tasks to keep, subject to $|K| \leq A$. Her payoff is
+\begin{equation}
+\label{eq:payoff}
+\Pi(K) = \sum_{i \in K} v_i + (1 - b) \sum_{i \notin K} v_i .
+\end{equation}
+
+We also allow the manager to spend attention on improving alignment: by devoting $a \geq 0$ units of attention to monitoring, she reduces misalignment to $b(a) = b e^{-a}$. The attention constraint becomes $|K| + a \leq A$.

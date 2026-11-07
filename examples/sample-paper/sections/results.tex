@@ -1,0 +1,24 @@
+\section{Results}
+\label{sec:results}
+
+\subsection{Delegation without monitoring}
+
+\begin{proposition}
+\label{prop:keep}
+Without monitoring, the manager keeps the $\min\{n, \lfloor A \rfloor\}$ most important tasks and delegates the rest.
+\end{proposition}
+
+The intuition is simple. Keeping task $i$ rather than delegating it gains $b v_i$, which is increasing in $v_i$. Attention is therefore spent on the most important tasks first. The proof is in Appendix~\ref{app:proofs}.
+
+\subsection{Delegation with monitoring}
+
+\begin{proposition}
+\label{prop:nonmonotone}
+With monitoring, the number of delegated tasks is non-monotone in $A$: it is decreasing in $A$ for small $A$ and increasing in $A$ for large $A$.
+\end{proposition}
+
+When attention is scarce, every unit is spent on keeping the most valuable tasks. When attention is abundant, a unit of monitoring improves the payoff on every delegated task at once, so the manager prefers to delegate more and monitor better. The proof is in Appendix~\ref{app:proofs}.
+
+\subsection{Implications for firm boundaries}
+
+A task that is delegated with high residual misalignment is a candidate for outsourcing. Proposition~\ref{prop:nonmonotone} implies that firms with intermediate managerial attention integrate the most tasks.
