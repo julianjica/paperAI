@@ -27,11 +27,25 @@ function line(w: WorkerState, text: string) {
 
 export interface WorkerTask { title: string; instructions: string; files: string[] }
 
-/** Run one worker to completion; its state streams to the activity panel. */
+export const DEFAULT_WORKER_TIMEOUT_MIN = 20;
+
+/**
+ * Run one worker to completion; its state streams to the activity panel.
+ * Each worker gets its own controller: the turn's abort stops it, and so
+ * does its own timeout, without touching the other workers of the batch.
+ */
 export async function runWorker(project: Project, settings: Settings, turnId: string, batch: number, task: WorkerTask, tools: AppTool[], signal: AbortSignal): Promise<WorkerState> {
 	const w: WorkerState = { id: nanoid(8), turnId, batch, title: task.title, files: task.files, status: "running", startedAt: Date.now(), activity: [] };
 	remember(project.id, w);
 	publish(project.id, { type: "worker", worker: w });
+	const minutes = settings.workerTimeoutMin ?? DEFAULT_WORKER_TIMEOUT_MIN;
+	const own = new AbortController();
+	let timedOut = false;
+	const timer = setTimeout(() => {
+		timedOut = true;
+		own.abort();
+	}, minutes * 60_000);
+	timer.unref();
 	let throttle = 0;
 	const emit = (force = false) => {
 		const now = Date.now();
@@ -50,7 +64,7 @@ export async function runWorker(project: Project, settings: Settings, turnId: st
 			effort: settings.workerEffort,
 			input: `Task: ${task.title}\n\n${task.instructions}`,
 			tools,
-			signal,
+			signal: AbortSignal.any([signal, own.signal]),
 			label: `worker ${w.id}`,
 		})) {
 			if (e.type === "text_delta") {
@@ -78,6 +92,14 @@ export async function runWorker(project: Project, settings: Settings, turnId: st
 	} catch (error) {
 		w.status = "error";
 		w.result = error instanceof Error ? error.message : String(error);
+	} finally {
+		clearTimeout(timer);
+	}
+	if (timedOut) {
+		// The engine only reports "Aborted"; the report should say why.
+		w.status = "error";
+		w.result = `Timed out after ${minutes} minutes.`;
+		line(w, w.result);
 	}
 	if (textLine.trim()) line(w, textLine.trim());
 	w.endedAt = Date.now();
