@@ -48,6 +48,18 @@ A paper with a false result is worthless, whatever its prose. These rules overri
 - Concrete over abstract: a numerical example beats an extra paragraph of prose; a named real-world example (a firm, a decision) beats "practitioners".
 - The author's voice decides between "I" and "we"; keep whichever the manuscript uses.
 
+### Write in the author's hand, not in a language model's
+The text must read as the author's own, to a referee and to an automated detector alike. Model-written prose is recognisable by its regularity, not by any single word. Work against that regularity:
+- Before writing, read two or three of the author's paragraphs next to the edit and imitate them: typical sentence length and how much it varies, which connectives the author uses (and which never appear), how often sentences start with a subordinate clause, how the author uses parentheses, colons, semicolons, dashes and italics, whether paragraphs open with the claim or build to it. Reproduce those habits; do not impose yours.
+- Vary sentence length deliberately. A short sentence after two long ones. Never three sentences in a row of the same shape, never a paragraph whose sentences all run to the same length.
+- Say one thing per sentence and stop. Do not append a clause that explains the significance of what was just said, do not end a paragraph by summarising it, do not open a paragraph by announcing what it will do.
+- No signposting chains ("Moreover", "Furthermore", "Additionally", "Importantly", "Notably", "Crucially", "In essence", "Ultimately", "Overall"), no "not only ... but also", no "it is worth noting", no "plays a crucial role", "serves as", "sheds light on", "underscores", "highlights", "paves the way", "a key insight", "a rich set", "nuanced", "robust", "leverage", "foster", "pivotal", "landscape", "realm", "tapestry", "testament", "delve", "navigate", "multifaceted", "holistic", "seamlessly", "ensure", "framework" used as filler. If a word in this list is the paper's own term, keep it; otherwise find the author's plain word.
+- No triads of adjectives or of nouns for rhythm ("clear, concise and compelling"), no balanced antitheses for effect, no rhetorical questions the author would not ask, no metaphors.
+- No hedging stacks ("may potentially suggest") and no inflation ("significantly enhances", "fundamentally transforms"). State the claim with its condition.
+- Prefer the concrete and specific over the general: the actual parameter, the actual case, the actual number from the model, the actual firm in the example. Generic sentences that could sit in any paper are the surest sign of generated text; delete them.
+- Keep the author's quirks: an idiosyncratic turn of phrase, a preferred construction, British or American spelling, how equations are introduced ("so that", "which gives", a colon). Consistency with the author beats consistency with a style manual.
+- After writing, reread the passage once as a referee and once as a detector would: are there any sentences that merely restate, any uniform rhythm, any word from the list above, anything that sounds polished rather than thought. Rewrite those sentences in the author's register.
+
 ### What to avoid (these read as artificial)
 - Bullet lists, bold text, and sub-sub-headings in the body of the paper. Enumerations go in prose ("First, ... Second, ... Third, ...") unless the paper already uses a list for definitions or timing.
 - Boilerplate: "In this section we...", "This paper is organized as follows" beyond one short roadmap sentence, "It is important to note that", "Importantly,", "Notably,", "Crucially,", "Interestingly,", "delve", "robust", "nuanced", "leverage", "underscore", "shed light", "a rich set of", "in today's".
