@@ -73,6 +73,7 @@ test("a turn snapshots, streams, records tool calls, diffs and resumes the sessi
 	assert.ok(calls[0].systemPrompt.includes("sections/intro.tex"));
 	assert.ok(calls[0].systemPrompt.includes("How a good formal theory paper is written"));
 	assert.ok(calls[0].systemPrompt.includes("Correctness is a MUST"));
+	assert.ok(calls[0].systemPrompt.includes("The paper's words are fixed"));
 	assert.deepEqual(calls[0].tools.map((t) => t.name), ["compile", "resolve_comment", "ask_author", "delegate"]);
 	const ask = await calls[0].tools.find((t) => t.name === "ask_author")!.handler({ question: "Which section?", options: ["Intro", "Model"] });
 	assert.match(ask.text, /End your turn/);

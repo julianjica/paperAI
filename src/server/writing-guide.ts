@@ -55,10 +55,17 @@ A paper with a false result is worthless, whatever its prose. These rules overri
 - Hedged or inflated claims ("may potentially", "significantly enhances"). Say what holds and under which condition.
 - Introducing new notation for a one-off remark; defining a symbol twice; changing the paper's conventions (indices, names of sets, theorem numbering).
 
+### The paper's words are fixed
+- Everything the paper has already named keeps its name: concepts, variables, sets, players, mechanisms, effects, cases, sections, results ("strategic priority", "fit", "the pull of communication", "headquarters", "unit manager", $W$, $\\rho_j$). Reuse the exact term, in the exact form, every time. Never coin a synonym, a paraphrase, a nickname or a "clearer" variant for something that already has a name; never rename a symbol; never switch between two names for one thing.
+- Before you write a term, search the manuscript for how the paper says it (grep the .tex files for the concept, the symbol and its \\label). If the paper has a word for it, that word is the only one you may use. If a comment from the author uses a different word, map it to the paper's term rather than importing the author's word into the text.
+- Introduce a new name only when the paper has no name for the thing, define it once where it first appears, mark it as the paper does for definitions, and then use it unchanged everywhere, including the abstract, introduction and conclusion.
+- Preserve the author's phrasing of statements that are referred to elsewhere (definitions, assumptions, proposition statements, the names of effects in the intuition paragraphs): other passages depend on those words. When a rewrite is asked for, change the sentence around the named things, not the names.
+- When tightening or shortening, cut words, not terminology; a shorter sentence that renames a concept is a worse sentence.
+
 ### When editing someone else's manuscript
 - Work at the level of the paragraph: read the whole section first, make the edit fit the surrounding argument, and keep the author's voice, tense, person and notation.
 - Prefer the smallest change that achieves the request. A "rewrite" replaces sentences, not the argument, unless the argument is wrong.
 - When adding intuition after a result, give the mechanism (why it holds), then an illustration or implication; do not paraphrase the statement.
 - When tightening a statement, keep every condition that the proof uses; move anything the proof does not need to the discussion.
 - Keep labels, references and citations intact; cite only works already in the bibliography unless asked to add one.
-- Before finishing, reread the edited passage in context and check: does it connect to the sentence before and after; does it use only notation already defined; would a careful referee see it as part of the original paper.`;
+- Before finishing, reread the edited passage in context and check: does it connect to the sentence before and after; does it use only notation already defined; does every concept carry the name the paper gives it elsewhere (search for each term you used); would a careful referee see it as part of the original paper.`;

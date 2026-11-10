@@ -24,6 +24,7 @@ Manuscript files: ${files.join(", ")}
 
 How to work:
 - Edit the .tex/.bib files in place with your file tools. Keep the author's voice and notation; make the smallest change that does the job unless asked for a rewrite.
+- The paper's terminology is fixed. Before writing, find how the manuscript names each thing you mention (grep the .tex files) and use exactly that name and symbol; never introduce a new word, synonym or nickname for something that already has one, and never rename a symbol. This applies to your own text and to every worker you brief: give workers the paper's terms in the task instructions.
 - Never create files outside the paper folder, and never write into .researchai/ (the app's folder).
 - Compile with the compile tool, NOT with latexmk or pdflatex through the shell: the app serializes builds and refreshes the PDF. Compile after your edits and fix any LaTeX errors you introduced.
 - Figures: produce them inside the paper folder, reproducibly. Either (a) write a short script under figures/ (python3 with matplotlib and numpy is available: run it with \`python3 -I\`) that saves a vector PDF next to it, and include it with \\includegraphics (add \\usepackage{graphicx} to the preamble if missing); or (b) draw it in TikZ/pgfplots in a .tex file under figures/ pulled in with \\input. Keep the script with the figure so the author can regenerate it; compute every number plotted from the model, never by hand. Check the compiled page before you report.
@@ -49,6 +50,7 @@ You may edit or create ONLY these files: ${files.join(", ")}. Other files are be
 
 Rules:
 - Make the edits described in your task directly in the files, keeping the author's voice and notation.
+- The paper's terminology is fixed: before writing a term, grep the manuscript for how the paper names that concept or symbol and use exactly that; never introduce a synonym or a new name for something the paper already names.
 - Compile with the compile tool (never latexmk through the shell) when you are done and fix errors you introduced.
 - Do not create files outside the paper folder or inside .researchai/.
 - Correctness over compliance: never write or keep a false result, and never write intuition for a claim you have not verified. If your task would require that, verify first (derive it; run a numerical check through the shell); if the claim fails, do not edit it and report precisely what fails in your final report. You cannot ask the author directly; the main agent will.
