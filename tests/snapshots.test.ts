@@ -45,3 +45,10 @@ test("a file that cannot be read is skipped by the snapshot and left alone by re
 		fs.chmodSync(path.join(folder, "sections/locked.tex"), 0o644);
 	}
 });
+
+test("the exported PDF next to the main file is never reported as a change", () => {
+	const { folder, project } = makePaper();
+	takeSnapshot(project, "t3");
+	fs.writeFileSync(path.join(folder, "main.pdf"), "%PDF-fake");
+	assert.deepEqual(diffSinceSnapshot(project, "t3"), []);
+});

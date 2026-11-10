@@ -12,6 +12,11 @@ import { sidecar } from "./projects.ts";
  */
 interface Manifest { files: string[]; manuscript: string[] }
 
+/** Files the app itself writes into the folder; never part of a turn's changes. */
+export function appOwnedFile(project: Project, rel: string): boolean {
+	return rel === project.mainTex.replace(/\.tex$/i, "") + ".pdf";
+}
+
 function walkAll(folder: string): string[] {
 	const out: string[] = [];
 	const walk = (dir: string, rel: string, depth: number) => {
@@ -41,7 +46,7 @@ export function takeSnapshot(project: Project, turnId: string): void {
 	const dir = snapshotDir(project, turnId);
 	fs.rmSync(dir, { recursive: true, force: true });
 	fs.mkdirSync(path.join(dir, "files"), { recursive: true });
-	const files = walkAll(project.folder);
+	const files = walkAll(project.folder).filter((f) => !appOwnedFile(project, f));
 	const manuscript: string[] = [];
 	// A file that cannot be read right now (a cloud-synced placeholder, a lock)
 	// is skipped rather than failing the turn; it simply cannot be reverted.
@@ -72,7 +77,7 @@ export function diffSinceSnapshot(project: Project, turnId: string): FileChange[
 	const dir = snapshotDir(project, turnId);
 	const manifest = JSON.parse(readOr(path.join(dir, "manifest.json")) ?? '{"files":[],"manuscript":[]}') as Manifest;
 	const before = new Set(manifest.files);
-	const now = walkAll(project.folder);
+	const now = walkAll(project.folder).filter((f) => !appOwnedFile(project, f));
 	const changes: FileChange[] = [];
 	for (const f of now) {
 		if (!before.has(f)) {

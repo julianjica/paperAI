@@ -39,6 +39,25 @@ export function servedPdfPath(project: Project): string {
 	return path.join(buildDir(project), "current.pdf");
 }
 
+/**
+ * The PDF the author sees in the folder: `<main>.pdf` next to the main .tex,
+ * replaced atomically after every good build (what Overleaf and a local
+ * latexmk would leave there). Best effort; the viewer uses the sidecar copy.
+ */
+export function exportedPdfPath(project: Project): string {
+	return path.join(project.folder, project.mainTex.replace(/\.tex$/i, "") + ".pdf");
+}
+function exportPdf(project: Project): void {
+	try {
+		const dest = exportedPdfPath(project);
+		const tmp = `${dest}.${process.pid}.tmp`;
+		fs.copyFileSync(servedPdfPath(project), tmp);
+		fs.renameSync(tmp, dest);
+	} catch (error) {
+		console.warn("[compile] could not write the PDF into the paper folder:", error instanceof Error ? error.message : error);
+	}
+}
+
 /** Publish the build output as the served PDF (copy + rename, so readers never see a partial file). */
 function publishPdf(project: Project): boolean {
 	const src = pdfPath(project);
@@ -109,7 +128,10 @@ function runLatexmk(project: Project, s: State): Promise<CompileResult> {
 			let errors = ok ? [] : extractLatexErrors(log);
 			if (!ok && errors.length === 0) errors = [extra ?? out.trim().split("\n").slice(-5).join("\n") ?? "latexmk failed"];
 			// A failed build can still leave a usable PDF (latexmk keeps going past errors).
-			if (publishPdf(project)) s.version += 1;
+			if (publishPdf(project)) {
+				s.version += 1;
+				exportPdf(project);
+			}
 			const result: CompileResult = { ok, errors, durationMs: Date.now() - started, version: s.version };
 			s.last = result;
 			publish(project.id, { type: "compiled", result });
