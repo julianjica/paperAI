@@ -55,3 +55,17 @@ test("prepareChatMarkdown guards < and converts backslash math delimiters, leavi
 	assert.equal(prepareChatMarkdown("unclosed \\(a + b"), "unclosed \\(a + b");
 	assert.equal(prepareChatMarkdown("literal \\\\(not math)"), "literal \\\\(not math)");
 });
+
+test("prepareChatMarkdown normalizes display math and KaTeX-unsafe macros", async () => {
+	const { prepareChatMarkdown, katexSafe } = await import("../src/core/chat-text.ts");
+	assert.equal(katexSafe("\\bm T_i^{\\top}\\bm\\Sigma^{-1}\\bm{x}"), "\\boldsymbol{T}_i^{\\top}\\boldsymbol{\\Sigma}^{-1}\\boldsymbol{x}");
+	assert.equal(katexSafe("\\mathbbm{1}\\label{eq:a} \\eqref{eq:b}"), "\\mathbb{1} \\text{(eq:b)}");
+	assert.equal(katexSafe("\\begin{align} a &= b \\end{align}"), "\\begin{aligned} a &= b \\end{aligned}");
+	// A block that closes at the end of a content line and runs into text becomes a proper fenced block.
+	const out = prepareChatMarkdown("gives\n$$L=\\bm T,\\qquad\nW=1.$$\nwith $v(s)=1$ after");
+	assert.equal(out, "gives\n\n$$\nL=\\boldsymbol{T},\\qquad\nW=1.\n$$\n\nwith $v(s)=1$ after");
+	// Inline stays inline; prices are not math.
+	assert.equal(prepareChatMarkdown("costs $5 and $x<y$"), "costs $5 and $x< y$");
+	// An unclosed block waits for the next chunk.
+	assert.equal(prepareChatMarkdown("start $$a+b"), "start $$a+b");
+});
