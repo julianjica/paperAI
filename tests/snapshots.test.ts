@@ -28,3 +28,20 @@ test("snapshot → edit/add/remove → diff → revert restores everything", () 
 	assert.equal(fs.existsSync(path.join(folder, "refs.bib")), true);
 	assert.deepEqual(diffSinceSnapshot(project, "t1"), []);
 });
+
+test("a file that cannot be read is skipped by the snapshot and left alone by revert", () => {
+	const { folder, project } = makePaper();
+	fs.writeFileSync(path.join(folder, "sections/locked.tex"), "secret\n");
+	fs.chmodSync(path.join(folder, "sections/locked.tex"), 0o000);
+	try {
+		takeSnapshot(project, "t2");
+		assert.equal(hasSnapshot(project, "t2"), true);
+		fs.writeFileSync(path.join(folder, "sections/intro.tex"), "changed\n");
+		const changes = diffSinceSnapshot(project, "t2");
+		assert.deepEqual(changes.map((c) => c.path), ["sections/intro.tex"]);
+		revertToSnapshot(project, "t2");
+		assert.equal(fs.readFileSync(path.join(folder, "sections/intro.tex"), "utf8"), "\\section{Intro}\nHello world.\n");
+	} finally {
+		fs.chmodSync(path.join(folder, "sections/locked.tex"), 0o644);
+	}
+});

@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
@@ -66,7 +67,7 @@ export function addProject(folder: string, mainTex: string): Project {
 	const project: Project = { id: nanoid(10), folder: abs, mainTex, name: `${path.basename(abs)} / ${mainTex}`, createdAt: now, openedAt: now };
 	projects.push(project);
 	writeJson(FILE(), projects);
-	fs.mkdirSync(path.join(abs, SIDECAR), { recursive: true });
+	ensureSidecar(project);
 	return project;
 }
 
@@ -107,4 +108,20 @@ export function removeProject(id: string): void {
 
 export function sidecar(project: Project, ...parts: string[]): string {
 	return path.join(project.folder, SIDECAR, ...parts);
+}
+
+const sidecarReady = new Set<string>();
+/**
+ * Create the sidecar and, on macOS, mark it ignored by Dropbox (and similar
+ * clients honour the same attribute): build output, snapshots and chat
+ * churn would otherwise sync continuously and files can be unavailable
+ * mid-sync. Best effort, once per process per project.
+ */
+export function ensureSidecar(project: Project): void {
+	const dir = sidecar(project);
+	if (sidecarReady.has(dir)) return;
+	sidecarReady.add(dir);
+	fs.mkdirSync(dir, { recursive: true });
+	if (process.platform === "darwin") execFile("xattr", ["-w", "com.dropbox.ignored", "1", dir], () => undefined);
+	else if (process.platform === "linux") execFile("attr", ["-s", "com.dropbox.ignored", "-V", "1", dir], () => undefined);
 }

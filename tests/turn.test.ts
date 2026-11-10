@@ -83,7 +83,7 @@ test("a turn snapshots, streams, records tool calls, diffs and resumes the sessi
 	const { done: done2 } = startTurn(project, { text: "Again", sendComments: false });
 	await done2;
 	assert.equal(calls[1].resume, "sess-1");
-	assert.equal(calls[1].input, "Again");
+	assert.equal(calls[1].input.split("\n")[0], "Again");
 });
 
 test("comments ride along, resolve_comment works, and delegate runs workers with disjoint files", async () => {
@@ -210,7 +210,7 @@ test("messages sent during a turn queue up and run in order afterwards", async (
 	release();
 	for (let i = 0; i < 100 && (listQueued(project).length > 0 || inputs.length < 3); i++) await new Promise((r) => setTimeout(r, 10));
 	await new Promise((r) => setTimeout(r, 30));
-	assert.deepEqual(inputs, ["one", "two", "four"]);
+	assert.deepEqual(inputs.map((i) => i.split("\n")[0]), ["one", "two", "four"]);
 	const chat = readChat(project);
 	assert.deepEqual(chat.messages.filter((m) => m.role === "user").map((m) => (m.role === "user" ? m.text : "")), ["one", "two", "four"]);
 	assert.equal(listQueued(project).length, 0);
@@ -350,4 +350,31 @@ test("turns interrupted by a server restart are closed on the next read; the run
 	const last = after.messages.at(-1);
 	assert.equal(last?.role === "assistant" ? last.error : "x", undefined);
 	assert.equal(after.turns.length, 3);
+});
+
+test("a failure before the engine starts is recorded on the message, not left as an open turn", async () => {
+	const { project } = makePaper();
+	setEngine("claude-code", {
+		id: "claude-code",
+		run() {
+			throw new Error("claude is not installed");
+		},
+	});
+	const { done } = startTurn(project, { text: "hi", sendComments: false });
+	const turn = await done;
+	assert.ok(turn.endedAt);
+	const a = readChat(project).messages[1];
+	assert.equal(a.role === "assistant" ? a.error : "", "claude is not installed");
+	// The next load has nothing to recover.
+	const { recoverInterruptedTurns } = await import("../src/server/turn.ts");
+	assert.equal(recoverInterruptedTurns(project), 0);
+});
+
+test("the reply-format reminder rides on every input", async () => {
+	const { project } = makePaper();
+	const calls: RunOptions[] = [];
+	setEngine("claude-code", scripted(async (_o, emit) => emit({ type: "done", text: "ok" }), calls));
+	await startTurn(project, { text: "hello", sendComments: false }).done;
+	assert.ok(calls[0].input.startsWith("hello"));
+	assert.match(calls[0].input, /Reply format: .*LaTeX/);
 });

@@ -42,11 +42,18 @@ export function takeSnapshot(project: Project, turnId: string): void {
 	fs.rmSync(dir, { recursive: true, force: true });
 	fs.mkdirSync(path.join(dir, "files"), { recursive: true });
 	const files = walkAll(project.folder);
-	const manuscript = files.filter(isManuscriptFile);
-	for (const f of manuscript) {
-		const dest = path.join(dir, "files", f);
-		fs.mkdirSync(path.dirname(dest), { recursive: true });
-		fs.copyFileSync(path.join(project.folder, f), dest);
+	const manuscript: string[] = [];
+	// A file that cannot be read right now (a cloud-synced placeholder, a lock)
+	// is skipped rather than failing the turn; it simply cannot be reverted.
+	for (const f of files.filter(isManuscriptFile)) {
+		try {
+			const dest = path.join(dir, "files", f);
+			fs.mkdirSync(path.dirname(dest), { recursive: true });
+			fs.copyFileSync(path.join(project.folder, f), dest);
+			manuscript.push(f);
+		} catch (error) {
+			console.warn(`[snapshot ${turnId}] could not copy ${f}:`, error instanceof Error ? error.message : error);
+		}
 	}
 	const manifest: Manifest = { files, manuscript };
 	fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify(manifest));
@@ -94,7 +101,7 @@ export function revertToSnapshot(project: Project, turnId: string): FileChange[]
 	for (const c of changes) {
 		const target = path.join(project.folder, c.path);
 		if (c.kind === "added") fs.rmSync(target, { force: true });
-		else if (isManuscriptFile(c.path)) {
+		else if (isManuscriptFile(c.path) && fs.existsSync(path.join(dir, "files", c.path))) {
 			fs.mkdirSync(path.dirname(target), { recursive: true });
 			fs.copyFileSync(path.join(dir, "files", c.path), target);
 		}

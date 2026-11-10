@@ -73,6 +73,9 @@ export function recoverInterruptedTurns(project: Project): number {
 	return n;
 }
 
+/** Appended to every user input (not shown in the chat bubble). */
+export const REPLY_FORMAT_REMINDER = "(Reply format: write every formula in your reply in LaTeX, inline as $...$ and displayed as $$...$$, exactly as in the paper. No Unicode math symbols or ASCII approximations.)";
+
 /**
  * Send a message: starts a turn now, or, while one is running, queues it to
  * start when the turn ends. Queued messages run in order.
@@ -131,7 +134,8 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	active.set(project.id, controller);
 	activeTurnIds.set(project.id, turnId);
 	const comments = input.sendComments ? sendPending(project, turnId) : [];
-	const userText = [input.text.trim(), renderCommentBatch(comments)].filter(Boolean).join("\n\n");
+	// The reply-format reminder rides on every input: a resumed session otherwise keeps the habits of its earlier turns.
+	const userText = [input.text.trim(), renderCommentBatch(comments), REPLY_FORMAT_REMINDER].filter(Boolean).join("\n\n");
 	const minutes = settings.turnTimeoutMin ?? DEFAULT_TURN_TIMEOUT_MIN;
 	const ceiling = setTimeout(() => controller.abort(new TurnTimeout(minutes)), minutes * 60_000);
 	ceiling.unref();
@@ -158,11 +162,6 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 	writeChat(project, record);
 	publish(project.id, { type: "turn_start", turnId });
 
-	takeSnapshot(project, turnId);
-	const files = listManuscriptFiles(project.folder);
-	const engine = engineFor(settings.engine);
-	const resume = record.session?.engine === settings.engine ? record.session.id : undefined;
-	const tools = [compileTool(project), resolveCommentTool(project), askAuthorTool(), delegateTool(project, settings, turnId, controller.signal)];
 	let usage = { input: 0, output: 0, cacheRead: 0 };
 	let lastSave = 0;
 	const save = (force = false) => {
@@ -171,7 +170,16 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 		lastSave = now;
 		writeChat(project, record);
 	};
+	// Everything from here on is guarded: a failure anywhere (a snapshot copy
+	// on a syncing Dropbox folder, a missing CLI, the engine itself) lands in
+	// the assistant message as the real error, instead of leaving a turn with
+	// no end that the next page load would report as a server restart.
 	try {
+		takeSnapshot(project, turnId);
+		const files = listManuscriptFiles(project.folder);
+		const engine = engineFor(settings.engine);
+		const resume = record.session?.engine === settings.engine ? record.session.id : undefined;
+		const tools = [compileTool(project), resolveCommentTool(project), askAuthorTool(), delegateTool(project, settings, turnId, controller.signal)];
 		for await (const e of engine.run({ cwd: project.folder, systemPrompt: mainSystemPrompt(project, files, settings.styleNote), model: settings.model, effort: settings.effort, input: userText, resume, tools, signal: controller.signal, label: `turn ${turnId}` })) {
 			publish(project.id, { type: "agent", turnId, event: e });
 			switch (e.type) {
@@ -224,15 +232,23 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 	// An engine that ends with "done" after the ceiling fired still reports the limit.
 	if (controller.signal.reason instanceof TurnTimeout && !assistant.error) assistant.error = controller.signal.reason.message;
 	assistant.usage = usage;
-	if (comments.length) closeSentComments(project, turnId, assistant.error ? `The turn failed: ${assistant.error}` : assistant.aborted ? "The turn was stopped before this was addressed." : "Handled in this turn (the agent left no note).");
-	turn.endedAt = Date.now();
-	turn.changes = diffSinceSnapshot(project, turnId);
-	save(true);
-	if (turn.changes.length > 0 || !assistant.error) {
-		turn.compile = await compile(project);
-		save(true);
+	try {
+		if (comments.length) closeSentComments(project, turnId, assistant.error ? `The turn failed: ${assistant.error}` : assistant.aborted ? "The turn was stopped before this was addressed." : "Handled in this turn (the agent left no note).");
+		turn.changes = hasSnapshot(project, turnId) ? diffSinceSnapshot(project, turnId) : [];
+	} catch (error) {
+		assistant.error ??= `After the run: ${error instanceof Error ? error.message : String(error)}`;
 	}
-	pruneSnapshots(project);
+	turn.endedAt = Date.now();
+	save(true);
+	try {
+		if (turn.changes.length > 0 || !assistant.error) {
+			turn.compile = await compile(project);
+			save(true);
+		}
+		pruneSnapshots(project);
+	} catch (error) {
+		console.error(`[turn ${turnId}] after-run step failed:`, error);
+	}
 	publish(project.id, { type: "turn_end", turnId, turn });
 	return turn;
 }
