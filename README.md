@@ -153,8 +153,16 @@ tests/          deterministic tests (no LLM, no network)
 docs/plan.md    design record: decisions, architecture, review fixes, status
 ```
 
-Per-project state lives in `<paper folder>/.researchai/`: build output, chat, comments,
-snapshots. Add `.researchai/` to the paper's `.gitignore`.
+Per-project state (build output, chat, comments, snapshots) lives under the app's data
+directory, `data/projects/<id>/`, never inside the paper folder: a paper folder is usually
+synced (Dropbox, Overleaf, git), and app state inside it produced "conflicted copy"
+duplicates and constant churn. The only file the app writes into the folder is the
+compiled `<main>.pdf`. A `.researchai/` folder left by an older version is moved out and
+removed the first time the paper is opened.
+
+Agents never make backup copies of files: every turn is snapshotted and can be reverted,
+and a copy of an existing file left in the folder at the end of a turn is deleted (the
+Changes tab says so).
 
 ## Development
 

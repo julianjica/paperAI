@@ -29,7 +29,9 @@ src/server/     projects store, settings, compile (latexmk), synctex, snapshots,
 electron/       main.cjs, preload.cjs (folder picker)
 examples/sample-paper/  main.tex, sections/*.tex, appendix.tex, refs.bib
 data/           settings.json, projects.json (gitignored)
-<paper>/.researchai/   build/ (latexmk outdir), snapshots/<turn>/, comments.json, chat.json, session.json
+data/projects/<id>/  build/ (latexmk outdir), snapshots/<turn>/, comments.json, chat.json, queue.json
+                     (moved out of the paper folder on 2026-11-11: Dropbox made "conflicted copy"
+                     duplicates of chat.json inside <paper>/.researchai/; a legacy folder is migrated)
 ```
 
 ## Engine interface (src/engine/engine.ts)
@@ -62,7 +64,7 @@ interface Engine { id: "claude-code" | "codex"; run(o: RunOptions): AsyncIterabl
 
 ## Turn pipeline (POST /api/projects/:id/turn, SSE)
 1. Build input: user text + any comments the user sent in this batch (id, file:line, quoted text, request).
-2. Snapshot manuscript files (.tex .bib .sty .cls .bst, recursive, excluding .researchai) → snapshots/<turn>/.
+2. Snapshot manuscript files (.tex .bib .sty .cls .bst, recursive, excluding the legacy .researchai) → snapshots/<turn>/.
 3. Run engine; stream events; persist to chat.json; record session id.
 4. On done: diff snapshot vs now (added/removed/changed files with unified diff), compile, emit
    `changes` + `compiled` events. Revert endpoint restores the snapshot (and deletes files created).
@@ -91,7 +93,7 @@ its history; every closer (resolve_comment and the end-of-turn fallbacks) also n
   a file is rejected as a tool error so the main agent re-plans. Single-file papers get sequential
   workers. The sample paper has sections/*.tex so both shapes are exercised.
 - **SyncTeX coordinates.** pdf.js user space is bottom-left; `synctex edit` takes top-left. Convert
-  `y = pageHeight - y_pdf`. Run `synctex edit -o page:x:y:.researchai/build/main.pdf` from the paper
+  `y = pageHeight - y_pdf`. Run `synctex edit -o page:x:y:<absolute build dir>/main.pdf` from the paper
   folder; verify `Input:` paths resolve. First live check after the sample paper compiles.
 - **Permissions.** Try `bypassPermissions` + `allowDangerouslySkipPermissions`; fall back to
   `acceptEdits` + an allow-all `canUseTool` if a folder's settings refuse it.
@@ -132,3 +134,15 @@ Robustness: per-worker timeouts (default 20 min) and a turn ceiling (default 90 
 abort reaches every worker and the CLI child; turns interrupted by a server restart are closed with a
 note and their changes recovered from the snapshot; the live stream reloads on reconnect; the two CLI
 adapters are tested by replaying real recorded transcripts (tests/fixtures, scripts/record-transcript.mjs).
+
+## Backups and synced folders (2026-11-11)
+- Agents copied the main file to `*_backup_before_*.tex` before edits (eleven such files in one
+  paper). Rule in both prompts: never make backup copies, the turn snapshot is the backup.
+  Enforcement: `validateTasks` refuses backup-looking file names; `removeDuplicateCopies` runs at
+  the end of every turn and deletes created files that are byte-identical to a pre-existing
+  file's snapshot or current version (`TurnRecord.removedCopies`, shown in the Changes tab).
+- All app state moved from `<paper>/.researchai/` to `data/projects/<id>/`. The Dropbox-ignore
+  xattr was not reliable (one folder never got it; conflicted copies of chat.json piled up).
+  latexmk gets an absolute `-outdir`; `synctex edit` is given the absolute PDF path with
+  cwd = the paper folder, so input names resolve. `ensureSidecar` migrates a legacy folder
+  (own files only, conflicted copies dropped) and removes it.

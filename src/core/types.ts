@@ -134,6 +134,8 @@ export interface TurnRecord {
 	/** Whether the snapshot still exists for revert. */
 	reverted?: boolean;
 	compile?: CompileResult;
+	/** Backup copies the agent left in the folder, deleted at the end of the turn. */
+	removedCopies?: string[];
 }
 
 export interface CompileResult {

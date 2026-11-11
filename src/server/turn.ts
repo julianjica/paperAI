@@ -7,10 +7,10 @@ import { readChat, writeChat, type ChatRecord } from "./chat.ts";
 import { closeSentComments, closeStaleSent, listComments, sendPending } from "./comments.ts";
 import { compile } from "./compile.ts";
 import { readJson, writeJson } from "./fsjson.ts";
-import { listManuscriptFiles, sidecar } from "./projects.ts";
+import { ensureSidecar, listManuscriptFiles, sidecar } from "./projects.ts";
 import { mainSystemPrompt } from "./prompt.ts";
 import { settingsFor, type EffectiveSettings } from "./settings.ts";
-import { diffSinceSnapshot, hasSnapshot, pruneSnapshots, takeSnapshot } from "./snapshots.ts";
+import { diffSinceSnapshot, hasSnapshot, pruneSnapshots, removeDuplicateCopies, takeSnapshot } from "./snapshots.ts";
 import { askAuthorTool, compileTool, delegateTool, resolveCommentTool } from "./tools.ts";
 
 /**
@@ -125,6 +125,7 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	if (active.has(project.id)) throw new Error("A turn is already running for this project.");
 	const settings = settingsFor(project);
 	const turnId = nanoid(10);
+	ensureSidecar(project);
 	// Before reading the record, so the new turn builds on the recovered one.
 	recoverInterruptedTurns(project);
 	const record = readChat(project);
@@ -234,7 +235,12 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 	assistant.usage = usage;
 	try {
 		if (comments.length) closeSentComments(project, turnId, assistant.error ? `The turn failed: ${assistant.error}` : assistant.aborted ? "The turn was stopped before this was addressed." : "Handled in this turn (the agent left no note).");
-		turn.changes = hasSnapshot(project, turnId) ? diffSinceSnapshot(project, turnId) : [];
+		if (hasSnapshot(project, turnId)) {
+			// "Backup before editing" copies go first, so they never show up as added files.
+			const removed = removeDuplicateCopies(project, turnId);
+			if (removed.length) turn.removedCopies = removed;
+			turn.changes = diffSinceSnapshot(project, turnId);
+		} else turn.changes = [];
 	} catch (error) {
 		assistant.error ??= `After the run: ${error instanceof Error ? error.message : String(error)}`;
 	}

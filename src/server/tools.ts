@@ -56,6 +56,9 @@ export function askAuthorTool(): AppTool {
  * create inside the folder (figures, scripts, new sections). Paths that leave
  * the folder or enter the app's sidecar are refused.
  */
+/** File names that only ever mean "a copy of something else". */
+export const BACKUP_NAME = /(backup|\.bak$|\.orig$|~$|[_-]old(\.|$)|[_-]copy(\.|$)|\.bk$)/i;
+
 export function validateTasks(tasks: WorkerTask[], existing: string[], folder?: string): string | null {
 	if (tasks.length === 0) return "No tasks given.";
 	if (tasks.length > 8) return "At most 8 tasks per batch.";
@@ -67,6 +70,7 @@ export function validateTasks(tasks: WorkerTask[], existing: string[], folder?: 
 		for (const f of t.files) {
 			const norm = f.replace(/^\.\//, "");
 			if (norm.startsWith("/") || norm.split("/").includes("..") || norm.startsWith(".researchai")) return `Task "${t.title}": ${f} is outside the paper folder (or inside .researchai). Use paths relative to the folder.`;
+			if (BACKUP_NAME.test(norm)) return `Task "${t.title}": ${f} looks like a backup copy. Never make backups: the app snapshots every file before the turn and the author can revert. Edit the original in place.`;
 			if (!known.has(norm) && folder && fs.existsSync(path.join(folder, norm)) && !isManuscriptFile(norm) && !/\.(pdf|png|jpg|jpeg|svg|eps|py|r|jl|csv|tikz)$/i.test(norm)) return `Task "${t.title}": ${f} exists but is not a file workers may edit.`;
 			const other = seen.get(norm);
 			if (other && other !== t.title) return `Tasks "${other}" and "${t.title}" both edit ${f}. Tasks in one batch must edit disjoint files; run them in separate batches instead.`;

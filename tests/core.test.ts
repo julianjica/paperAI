@@ -41,6 +41,8 @@ test("validateTasks rejects shared files, unknown files and empty batches", () =
 	assert.equal(validateTasks([{ title: "t", instructions: "i", files: ["figures/plot.py", "figures/plot.pdf", "sections/new.tex"] }], files), null);
 	assert.match(validateTasks([{ title: "t", instructions: "i", files: ["../other.tex"] }], files)!, /outside the paper folder/);
 	assert.match(validateTasks([{ title: "t", instructions: "i", files: [".researchai/x"] }], files)!, /outside the paper folder/);
+	assert.match(validateTasks([{ title: "t", instructions: "i", files: ["main_backup_before_edit.tex"] }], files)!, /backup copy/);
+	assert.match(validateTasks([{ title: "t", instructions: "i", files: ["main.tex.bak"] }], files)!, /backup copy/);
 	assert.match(validateTasks([{ title: "t1", instructions: "i", files: ["sections/a.tex"] }, { title: "t2", instructions: "i", files: ["./sections/a.tex"] }], files)!, /both edit/);
 	assert.match(validateTasks([{ title: "t", instructions: "i", files: [] }], files)!, /names no files/);
 });

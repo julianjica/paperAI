@@ -34,6 +34,11 @@ function Turn({ turn, running, onRevert }: { turn: TurnRecord; running: boolean;
 					)
 				)}
 			</div>
+			{turn.removedCopies && turn.removedCopies.length > 0 && (
+				<div className="text-xs text-ink-muted" title="The agent copied a file before editing it; the copy was deleted (the snapshot keeps the original).">
+					Backup copies removed: <span className="font-mono">{turn.removedCopies.join(", ")}</span>
+				</div>
+			)}
 			{turn.changes.length === 0 && <div className="text-xs text-ink-muted">No file changes.</div>}
 			{turn.changes.map((c) => (
 				<div key={c.path} className="mt-1">

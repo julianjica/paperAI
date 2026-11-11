@@ -1,4 +1,3 @@
-import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
@@ -103,25 +102,61 @@ export function updateProjectSettings(id: string, patch: ProjectSettings): Proje
 }
 
 export function removeProject(id: string): void {
-	writeJson(FILE(), readJson<Project[]>(FILE(), []).filter((p) => p.id !== id));
+	const projects = readJson<Project[]>(FILE(), []);
+	const p = projects.find((x) => x.id === id);
+	writeJson(FILE(), projects.filter((x) => x.id !== id));
+	if (p) fs.rmSync(sidecar(p), { recursive: true, force: true });
 }
 
+/**
+ * Where the app keeps a project's state (chat, comments, queue, snapshots,
+ * build output): under the app's data directory, never inside the paper
+ * folder. A paper folder is often synced (Dropbox, Overleaf, git); app
+ * state inside it produced "conflicted copy" duplicates and constant churn,
+ * so the only file the app writes into the folder is the exported PDF.
+ */
 export function sidecar(project: Project, ...parts: string[]): string {
-	return path.join(project.folder, SIDECAR, ...parts);
+	return path.join(DATA_DIR, "projects", project.id, ...parts);
+}
+
+/** The legacy in-folder state directory, if this project still has one. */
+export function legacySidecar(project: Project): string {
+	return path.join(project.folder, SIDECAR);
 }
 
 const sidecarReady = new Set<string>();
 /**
- * Create the sidecar and, on macOS, mark it ignored by Dropbox (and similar
- * clients honour the same attribute): build output, snapshots and chat
- * churn would otherwise sync continuously and files can be unavailable
- * mid-sync. Best effort, once per process per project.
+ * Create the state directory and move a legacy in-folder `.researchai`
+ * into it. Only the app's own files are
+ * carried over (a sync client's "conflicted copy" duplicates are dropped
+ * with the folder); the project's state wins over the legacy copy if both
+ * exist. Best effort: a failure leaves the legacy folder in place.
  */
 export function ensureSidecar(project: Project): void {
 	const dir = sidecar(project);
-	if (sidecarReady.has(dir)) return;
-	sidecarReady.add(dir);
-	fs.mkdirSync(dir, { recursive: true });
-	if (process.platform === "darwin") execFile("xattr", ["-w", "com.dropbox.ignored", "1", dir], () => undefined);
-	else if (process.platform === "linux") execFile("attr", ["-s", "com.dropbox.ignored", "-V", "1", dir], () => undefined);
+	if (!sidecarReady.has(dir)) {
+		sidecarReady.add(dir);
+		fs.mkdirSync(dir, { recursive: true });
+	}
+	// Checked every time (one stat): a legacy folder can reappear from a sync client's history.
+	migrateLegacySidecar(project);
+}
+
+const LEGACY_ENTRIES = ["chat.json", "comments.json", "queue.json", "snapshots", "build"];
+function migrateLegacySidecar(project: Project): void {
+	const legacy = legacySidecar(project);
+	if (!fs.existsSync(legacy)) return;
+	const dir = sidecar(project);
+	try {
+		for (const name of LEGACY_ENTRIES) {
+			const from = path.join(legacy, name);
+			const to = path.join(dir, name);
+			if (!fs.existsSync(from) || fs.existsSync(to)) continue;
+			fs.cpSync(from, to, { recursive: true });
+		}
+		fs.rmSync(legacy, { recursive: true, force: true });
+		console.log(`[projects] moved ${legacy} out of the paper folder`);
+	} catch (error) {
+		console.warn(`[projects] could not move ${legacy}:`, error instanceof Error ? error.message : error);
+	}
 }

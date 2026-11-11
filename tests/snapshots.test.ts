@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { makePaper } from "./helpers.ts";
-import { diffSinceSnapshot, hasSnapshot, revertToSnapshot, takeSnapshot } from "../src/server/snapshots.ts";
+import { DATA_DIR } from "../config.ts";
+import { ensureSidecar, sidecar } from "../src/server/projects.ts";
+import { diffSinceSnapshot, hasSnapshot, removeDuplicateCopies, revertToSnapshot, takeSnapshot } from "../src/server/snapshots.ts";
 
 test("snapshot → edit/add/remove → diff → revert restores everything", () => {
 	const { folder, project } = makePaper();
@@ -51,4 +53,41 @@ test("the exported PDF next to the main file is never reported as a change", () 
 	takeSnapshot(project, "t3");
 	fs.writeFileSync(path.join(folder, "main.pdf"), "%PDF-fake");
 	assert.deepEqual(diffSinceSnapshot(project, "t3"), []);
+});
+
+test("backup copies the agent leaves behind are deleted; genuinely new files stay", () => {
+	const { folder, project } = makePaper();
+	takeSnapshot(project, "t4");
+	// A copy of the pre-edit file, then the edit (the classic "cp before sed").
+	fs.copyFileSync(path.join(folder, "sections/intro.tex"), path.join(folder, "sections/intro_backup_before_rewrite.tex"));
+	fs.writeFileSync(path.join(folder, "sections/intro.tex"), "\\section{Intro}\nRewritten.\n");
+	// A copy of the current (edited) file, under a name that does not look like a backup.
+	fs.copyFileSync(path.join(folder, "sections/intro.tex"), path.join(folder, "intro2.tex"));
+	// A genuinely new file.
+	fs.writeFileSync(path.join(folder, "sections/new.tex"), "\\section{New}\n");
+	const removed = removeDuplicateCopies(project, "t4").sort();
+	assert.deepEqual(removed, ["intro2.tex", "sections/intro_backup_before_rewrite.tex"]);
+	assert.ok(!fs.existsSync(path.join(folder, "sections/intro_backup_before_rewrite.tex")));
+	assert.ok(fs.existsSync(path.join(folder, "sections/new.tex")));
+	const changes = diffSinceSnapshot(project, "t4").map((c) => `${c.kind} ${c.path}`).sort();
+	assert.deepEqual(changes, ["added sections/new.tex", "modified sections/intro.tex"]);
+});
+
+test("project state lives under the data dir, and a legacy in-folder .researchai is moved there", () => {
+	const { folder, project } = makePaper();
+	assert.ok(!sidecar(project).startsWith(folder));
+	assert.ok(sidecar(project).startsWith(DATA_DIR));
+	// Pretend an older version left state (and Dropbox left a conflicted copy) in the folder.
+	const legacy = path.join(folder, ".researchai");
+	fs.mkdirSync(path.join(legacy, "snapshots/old"), { recursive: true });
+	fs.writeFileSync(path.join(legacy, "comments.json"), JSON.stringify([{ id: "c1" }]));
+	fs.writeFileSync(path.join(legacy, "chat (conflicted copy).json"), "{}");
+	fs.writeFileSync(path.join(legacy, "snapshots/old/manifest.json"), "{}");
+	const again = project;
+	fs.rmSync(sidecar(again), { recursive: true, force: true });
+	ensureSidecar(again);
+	assert.ok(!fs.existsSync(legacy), "legacy folder removed from the paper folder");
+	assert.ok(fs.existsSync(path.join(sidecar(again), "comments.json")));
+	assert.ok(fs.existsSync(path.join(sidecar(again), "snapshots/old/manifest.json")));
+	assert.ok(!fs.existsSync(path.join(sidecar(again), "chat (conflicted copy).json")), "conflicted copies are not carried over");
 });

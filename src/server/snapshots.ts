@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { createTwoFilesPatch } from "diff";
@@ -112,6 +113,52 @@ export function revertToSnapshot(project: Project, turnId: string): FileChange[]
 		}
 	}
 	return changes;
+}
+
+function sha1(buf: Buffer): string {
+	return createHash("sha1").update(buf).digest("hex");
+}
+
+/**
+ * Delete files the agent created during the turn that are byte-for-byte
+ * copies of a file that already existed: its pre-turn version (kept in the
+ * snapshot) or its current one. Those are the "backup before editing" copies
+ * agents like to leave behind; nothing is lost by removing them, since the
+ * snapshot holds the original and Revert restores it. Returns the deleted paths.
+ */
+export function removeDuplicateCopies(project: Project, turnId: string): string[] {
+	const dir = snapshotDir(project, turnId);
+	const manifest = JSON.parse(readOr(path.join(dir, "manifest.json")) ?? '{"files":[],"manuscript":[]}') as Manifest;
+	if (manifest.files.length === 0) return [];
+	const before = new Set(manifest.files);
+	const added = walkAll(project.folder).filter((f) => !before.has(f) && !appOwnedFile(project, f));
+	if (added.length === 0) return [];
+	const known = new Set<string>();
+	const hashOf = (file: string) => {
+		try {
+			return sha1(fs.readFileSync(file));
+		} catch {
+			return null;
+		}
+	};
+	for (const f of manifest.manuscript) {
+		for (const file of [path.join(dir, "files", f), path.join(project.folder, f)]) {
+			const h = hashOf(file);
+			if (h) known.add(h);
+		}
+	}
+	const removed: string[] = [];
+	for (const f of added) {
+		const h = hashOf(path.join(project.folder, f));
+		if (!h || !known.has(h)) continue;
+		try {
+			fs.rmSync(path.join(project.folder, f), { force: true });
+			removed.push(f);
+		} catch (error) {
+			console.warn(`[snapshot ${turnId}] could not remove the copy ${f}:`, error instanceof Error ? error.message : error);
+		}
+	}
+	return removed;
 }
 
 export function hasSnapshot(project: Project, turnId: string): boolean {

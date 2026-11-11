@@ -107,9 +107,9 @@ function runLatexmk(project: Project, s: State): Promise<CompileResult> {
 	const started = Date.now();
 	const outdir = buildDir(project);
 	fs.mkdirSync(outdir, { recursive: true });
-	const rel = path.relative(project.folder, outdir) || ".";
+	// The build directory is outside the paper folder (the app's data dir): latexmk takes an absolute outdir.
 	return new Promise((resolve) => {
-		const child = spawn("latexmk", ["-pdf", "-synctex=1", "-interaction=nonstopmode", "-file-line-error", `-outdir=${rel}`, project.mainTex], {
+		const child = spawn("latexmk", ["-pdf", "-synctex=1", "-interaction=nonstopmode", "-file-line-error", `-outdir=${outdir}`, project.mainTex], {
 			cwd: project.folder,
 			env: { ...process.env, PATH: texPath() },
 			stdio: ["ignore", "pipe", "pipe"],
