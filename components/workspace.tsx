@@ -363,7 +363,7 @@ export function Workspace({ id }: { id: string }) {
 			</div>
 			{draft && <CommentPopover draft={draft} anchorFile={draftAnchor} onSubmit={addComment} onCancel={() => { setDraft(null); window.getSelection()?.removeAllRanges(); }} />}
 			{toast && <div className="fixed bottom-4 right-4 z-50 max-w-md rounded-md border border-line bg-panel px-3 py-2 shadow-lg">{toast}</div>}
-			{settingsOpen && <SettingsDialog projectId={id} onClose={() => setSettingsOpen(false)} />}
+			{settingsOpen && <SettingsDialog projectId={id} onClose={() => setSettingsOpen(false)} onProjectChange={() => void load()} />}
 		</div>
 	);
 }

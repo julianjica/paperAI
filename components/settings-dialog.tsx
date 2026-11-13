@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 
 type Models = Record<EngineId, { id: string; label: string }[]>;
 interface Loaded { settings: Settings; models: Models; available: Record<EngineId, boolean> }
-interface ProjectLoaded { settings: ProjectSettings; effective: Settings & { styleNote?: string }; models: Models; available: Record<EngineId, boolean> }
+interface ProjectLoaded { settings: ProjectSettings; effective: Settings & { styleNote?: string }; models: Models; available: Record<EngineId, boolean>; mainTex: string; candidates: string[] }
 /** What the project PUT accepts: null clears an override (JSON drops undefined). */
 type ProjectPatch = { [K in keyof ProjectSettings]?: ProjectSettings[K] | null };
 
@@ -19,7 +19,7 @@ const select = "w-full rounded-md border border-line bg-panel-2 px-2 py-1";
  * Each project control's first option is "Use default (…)" so the author sees
  * what falls through from the global section below.
  */
-export function SettingsDialog({ projectId, onClose }: { projectId?: string; onClose: () => void }) {
+export function SettingsDialog({ projectId, onClose, onProjectChange }: { projectId?: string; onClose: () => void; onProjectChange?: () => void }) {
 	const [data, setData] = useState<Loaded | null>(null);
 	const [proj, setProj] = useState<ProjectLoaded | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -43,6 +43,18 @@ export function SettingsDialog({ projectId, onClose }: { projectId?: string; onC
 		if (!data) return;
 		const models = data.models[engine];
 		void save({ engine, model: models[0]?.id ?? "", workerModel: models[1]?.id ?? models[0]?.id ?? "" });
+	};
+
+	const changeMainTex = async (mainTex: string) => {
+		if (!proj || !projectId || mainTex === proj.mainTex) return;
+		setProj({ ...proj, mainTex });
+		try {
+			setProj(await api.put<ProjectLoaded>(`/api/projects/${projectId}/settings`, { mainTex }));
+			onProjectChange?.();
+		} catch (e) {
+			setProj(proj);
+			setError(e instanceof Error ? e.message : String(e));
+		}
 	};
 
 	const saveProject = async (patch: ProjectPatch) => {
@@ -89,6 +101,16 @@ export function SettingsDialog({ projectId, onClose }: { projectId?: string; onC
 				{data && proj && projectId && (
 					<section className="mb-6 space-y-4">
 						<SectionTitle>This paper</SectionTitle>
+						<Row label="Main file">
+							<select className={select} value={proj.mainTex} onChange={(e) => void changeMainTex(e.target.value)}>
+								{(proj.candidates.includes(proj.mainTex) ? proj.candidates : [proj.mainTex, ...proj.candidates]).map((f) => (
+									<option key={f} value={f}>
+										{f}
+									</option>
+								))}
+							</select>
+							<p className="mt-1 text-xs text-ink-muted">The .tex that is compiled and shown (every file in the folder with \documentclass). Switching keeps the chat and comments and recompiles.</p>
+						</Row>
 						<Row label="Engine">
 							<select className={select} value={proj.settings.engine ?? ""} onChange={(e) => changeProjectEngine(e.target.value as EngineId | "")}>
 								<option value="">Use default ({ENGINE_LABEL[data.settings.engine]})</option>

@@ -153,6 +153,10 @@ tests/          deterministic tests (no LLM, no network)
 docs/plan.md    design record: decisions, architecture, review fixes, status
 ```
 
+To work on another root file of the same folder (a slides deck, a short version, a
+submission variant), open the paper's settings and pick it under "Main file": the chat and
+comments stay, and the new file is compiled and shown.
+
 Per-project state (build output, chat, comments, snapshots) lives under the app's data
 directory, `data/projects/<id>/`, never inside the paper folder: a paper folder is usually
 synced (Dropbox, Overleaf, git), and app state inside it produced "conflicted copy"

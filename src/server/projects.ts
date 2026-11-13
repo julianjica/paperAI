@@ -101,6 +101,24 @@ export function updateProjectSettings(id: string, patch: ProjectSettings): Proje
 	return p;
 }
 
+/**
+ * Switch the main .tex of a project (the file that is compiled and shown).
+ * Chat, comments and snapshots stay with the project: the author is still
+ * working on the same paper, only through a different root file.
+ */
+export function setMainTex(id: string, mainTex: string): Project {
+	const projects = readJson<Project[]>(FILE(), []);
+	const p = projects.find((x) => x.id === id);
+	if (!p) throw new Error("No such project");
+	const rel = mainTex.replace(/^\.\//, "").split(path.sep).join("/");
+	if (!rel.toLowerCase().endsWith(".tex") || rel.startsWith("/") || rel.split("/").includes("..")) throw new Error("The main file must be a .tex file inside the paper folder.");
+	if (!fs.existsSync(path.join(p.folder, rel))) throw new Error(`Main file not found: ${rel}`);
+	p.mainTex = rel;
+	p.name = `${path.basename(p.folder)} / ${rel}`;
+	writeJson(FILE(), projects);
+	return p;
+}
+
 export function removeProject(id: string): void {
 	const projects = readJson<Project[]>(FILE(), []);
 	const p = projects.find((x) => x.id === id);
