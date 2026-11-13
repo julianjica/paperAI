@@ -11,7 +11,7 @@
 		"build": "next build",
 		"start": "next start",
 		"postinstall": "node scripts/copy-pdf-worker.mjs",
-		"test": "RA_DATA_DIR=\"$(mktemp -d)\" NODE_ENV=test tsx --test tests/*.test.ts",
+		"test": "RA_DATA_DIR=\"$(mktemp -d)\" NODE_ENV=test tsx --test --test-concurrency=1 tests/*.test.ts",
 		"typecheck": "tsc --noEmit",
 		"desktop:dev": "concurrently -k \"next dev -p 3100\" \"RA_DEV_URL=http://localhost:3100 electron .\"",
 		"desktop": "next build && electron ."

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { AgentEvent, ChatMessage, Comment, CompileResult, Project, ProjectEvent, QueuedMessage, TurnRecord, WorkerState } from "@/src/core";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ interface Loaded {
 type Tab = "chat" | "comments" | "activity" | "changes";
 
 export function Workspace({ id }: { id: string }) {
+	const router = useRouter();
 	const [data, setData] = useState<Loaded | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [tab, setTab] = useState<Tab>("chat");
@@ -363,7 +365,7 @@ export function Workspace({ id }: { id: string }) {
 			</div>
 			{draft && <CommentPopover draft={draft} anchorFile={draftAnchor} onSubmit={addComment} onCancel={() => { setDraft(null); window.getSelection()?.removeAllRanges(); }} />}
 			{toast && <div className="fixed bottom-4 right-4 z-50 max-w-md rounded-md border border-line bg-panel px-3 py-2 shadow-lg">{toast}</div>}
-			{settingsOpen && <SettingsDialog projectId={id} onClose={() => setSettingsOpen(false)} onProjectChange={() => void load()} />}
+			{settingsOpen && <SettingsDialog projectId={id} onClose={() => setSettingsOpen(false)} onSwitchProject={(pid) => router.push(`/p/${pid}`)} />}
 		</div>
 	);
 }

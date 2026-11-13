@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Effort, EngineId, ProjectSettings, Settings } from "@/src/core";
+import type { Effort, EngineId, Project, ProjectSettings, Settings } from "@/src/core";
 import { api } from "@/lib/api";
 
 type Models = Record<EngineId, { id: string; label: string }[]>;
 interface Loaded { settings: Settings; models: Models; available: Record<EngineId, boolean> }
-interface ProjectLoaded { settings: ProjectSettings; effective: Settings & { styleNote?: string }; models: Models; available: Record<EngineId, boolean>; mainTex: string; candidates: string[] }
+interface ProjectLoaded { project: Project; settings: ProjectSettings; effective: Settings & { styleNote?: string }; models: Models; available: Record<EngineId, boolean>; mainTex: string; candidates: string[] }
 /** What the project PUT accepts: null clears an override (JSON drops undefined). */
 type ProjectPatch = { [K in keyof ProjectSettings]?: ProjectSettings[K] | null };
 
@@ -19,7 +19,7 @@ const select = "w-full rounded-md border border-line bg-panel-2 px-2 py-1";
  * Each project control's first option is "Use default (…)" so the author sees
  * what falls through from the global section below.
  */
-export function SettingsDialog({ projectId, onClose, onProjectChange }: { projectId?: string; onClose: () => void; onProjectChange?: () => void }) {
+export function SettingsDialog({ projectId, onClose, onSwitchProject }: { projectId?: string; onClose: () => void; onSwitchProject?: (id: string) => void }) {
 	const [data, setData] = useState<Loaded | null>(null);
 	const [proj, setProj] = useState<ProjectLoaded | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -45,12 +45,14 @@ export function SettingsDialog({ projectId, onClose, onProjectChange }: { projec
 		void save({ engine, model: models[0]?.id ?? "", workerModel: models[1]?.id ?? models[0]?.id ?? "" });
 	};
 
+	// Each root file is its own document (chat, comments, snapshots): switching opens that project.
 	const changeMainTex = async (mainTex: string) => {
 		if (!proj || !projectId || mainTex === proj.mainTex) return;
 		setProj({ ...proj, mainTex });
 		try {
-			setProj(await api.put<ProjectLoaded>(`/api/projects/${projectId}/settings`, { mainTex }));
-			onProjectChange?.();
+			const r = await api.put<ProjectLoaded>(`/api/projects/${projectId}/settings`, { mainTex });
+			if (r.project.id !== projectId) onSwitchProject?.(r.project.id);
+			else setProj(r);
 		} catch (e) {
 			setProj(proj);
 			setError(e instanceof Error ? e.message : String(e));
@@ -109,7 +111,7 @@ export function SettingsDialog({ projectId, onClose, onProjectChange }: { projec
 									</option>
 								))}
 							</select>
-							<p className="mt-1 text-xs text-ink-muted">The .tex that is compiled and shown (every file in the folder with \documentclass). Switching keeps the chat and comments and recompiles.</p>
+							<p className="mt-1 text-xs text-ink-muted">The document being edited: compiled, shown, commented and discussed with the agent. Every .tex in the folder with \documentclass is listed. Each has its own chat, comments and history; switching opens it, and switching back brings the previous chat back.</p>
 						</Row>
 						<Row label="Engine">
 							<select className={select} value={proj.settings.engine ?? ""} onChange={(e) => changeProjectEngine(e.target.value as EngineId | "")}>

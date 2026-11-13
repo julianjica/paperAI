@@ -102,21 +102,30 @@ export function updateProjectSettings(id: string, patch: ProjectSettings): Proje
 }
 
 /**
- * Switch the main .tex of a project (the file that is compiled and shown).
- * Chat, comments and snapshots stay with the project: the author is still
- * working on the same paper, only through a different root file.
+ * Switch to another main .tex of the same folder. A project is one root
+ * document (folder + main file) with its own chat, comments and snapshots,
+ * so switching means opening the sibling project for that file, created on
+ * first use with this project's settings copied over. Switching back finds
+ * the original again, chat intact.
  */
-export function setMainTex(id: string, mainTex: string): Project {
+export function switchMainTex(id: string, mainTex: string): Project {
 	const projects = readJson<Project[]>(FILE(), []);
 	const p = projects.find((x) => x.id === id);
 	if (!p) throw new Error("No such project");
 	const rel = mainTex.replace(/^\.\//, "").split(path.sep).join("/");
 	if (!rel.toLowerCase().endsWith(".tex") || rel.startsWith("/") || rel.split("/").includes("..")) throw new Error("The main file must be a .tex file inside the paper folder.");
 	if (!fs.existsSync(path.join(p.folder, rel))) throw new Error(`Main file not found: ${rel}`);
-	p.mainTex = rel;
-	p.name = `${path.basename(p.folder)} / ${rel}`;
+	const now = Date.now();
+	let sibling = projects.find((x) => x.folder === p.folder && x.mainTex === rel);
+	if (!sibling) {
+		sibling = { id: nanoid(10), folder: p.folder, mainTex: rel, name: `${path.basename(p.folder)} / ${rel}`, createdAt: now, openedAt: now };
+		if (p.settings) sibling.settings = { ...p.settings };
+		projects.push(sibling);
+	}
+	sibling.openedAt = now;
 	writeJson(FILE(), projects);
-	return p;
+	ensureSidecar(sibling);
+	return sibling;
 }
 
 export function removeProject(id: string): void {

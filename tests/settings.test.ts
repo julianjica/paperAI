@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { makePaper } from "./helpers.ts";
 import fs from "node:fs";
 import path from "node:path";
-import { getProject, setMainTex, updateProjectSettings } from "../src/server/projects.ts";
+import { getProject, switchMainTex, updateProjectSettings } from "../src/server/projects.ts";
 import { settingsFor, writeSettings } from "../src/server/settings.ts";
 
 // Test files run in parallel against one data dir: keep these the same values turn.test.ts writes.
@@ -37,14 +37,19 @@ test("updateProjectSettings merges, removes on undefined/null, persists, and ign
 	assert.throws(() => updateProjectSettings("nope", {}), /No such project/);
 });
 
-test("setMainTex switches the root file in place, keeping the project id, and refuses files outside the folder", () => {
+test("switchMainTex opens the sibling project for that root file (own chat), copies settings, and finds it again", () => {
 	const { folder, project } = makePaper();
 	fs.writeFileSync(path.join(folder, "slides.tex"), "\\documentclass{beamer}\n\\begin{document}\\end{document}\n");
-	const p = setMainTex(project.id, "./slides.tex");
-	assert.equal(p.id, project.id);
-	assert.equal(p.mainTex, "slides.tex");
-	assert.equal(getProject(project.id)?.name, `${path.basename(folder)} / slides.tex`);
-	assert.throws(() => setMainTex(project.id, "missing.tex"), /not found/);
-	assert.throws(() => setMainTex(project.id, "../main.tex"), /inside the paper folder/);
-	assert.throws(() => setMainTex(project.id, "refs.bib"), /\.tex file/);
+	updateProjectSettings(project.id, { styleNote: "Use we." });
+	const slides = switchMainTex(project.id, "./slides.tex");
+	assert.notEqual(slides.id, project.id);
+	assert.equal(slides.mainTex, "slides.tex");
+	assert.equal(slides.name, `${path.basename(folder)} / slides.tex`);
+	assert.equal(slides.settings?.styleNote, "Use we.");
+	assert.equal(getProject(project.id)?.mainTex, "main.tex", "the original project is untouched");
+	assert.equal(switchMainTex(slides.id, "main.tex").id, project.id, "switching back finds the original");
+	assert.equal(switchMainTex(project.id, "slides.tex").id, slides.id, "no duplicate sibling");
+	assert.throws(() => switchMainTex(project.id, "missing.tex"), /not found/);
+	assert.throws(() => switchMainTex(project.id, "../main.tex"), /inside the paper folder/);
+	assert.throws(() => switchMainTex(project.id, "refs.bib"), /\.tex file/);
 });

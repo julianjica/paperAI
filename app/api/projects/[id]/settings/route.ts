@@ -1,8 +1,9 @@
-import { compile, engineAvailable, getProject, listMainCandidates, MODELS, setMainTex, settingsFor, turnRunning, updateProjectSettings } from "@/src/server";
+import { engineAvailable, getProject, listMainCandidates, MODELS, settingsFor, switchMainTex, updateProjectSettings } from "@/src/server";
 import type { Project, ProjectSettings } from "@/src/core";
 
 function payload(project: Project) {
 	return {
+		project,
 		settings: project.settings ?? {},
 		effective: settingsFor(project),
 		models: MODELS,
@@ -12,7 +13,7 @@ function payload(project: Project) {
 	};
 }
 
-export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]/settings">) {
+export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]">) {
 	const { id } = await ctx.params;
 	const project = getProject(id);
 	if (!project) return Response.json({ error: "No such project" }, { status: 404 });
@@ -21,9 +22,9 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]/s
 
 /**
  * A field sent as null clears that override (JSON has no undefined).
- * `mainTex` is not a setting but the project's root file: switching it
- * recompiles in the background (the viewer picks the new PDF up from the
- * compiled event).
+ * `mainTex` is not a setting: it switches to the sibling project for that
+ * root file (its own chat, comments and snapshots), returned as `project`
+ * so the client can open it.
  */
 export async function PUT(request: Request, ctx: RouteContext<"/api/projects/[id]/settings">) {
 	const { id } = await ctx.params;
@@ -34,13 +35,11 @@ export async function PUT(request: Request, ctx: RouteContext<"/api/projects/[id
 	for (const [k, v] of Object.entries(rest)) patch[k] = v ?? undefined;
 	let project = updateProjectSettings(id, patch as ProjectSettings);
 	if (typeof mainTex === "string" && mainTex !== project.mainTex) {
-		if (turnRunning(id)) return Response.json({ error: "Wait for the running turn to finish before changing the main file." }, { status: 409 });
 		try {
-			project = setMainTex(id, mainTex);
+			project = switchMainTex(id, mainTex);
 		} catch (error) {
 			return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
 		}
-		void compile(project);
 	}
 	return Response.json(payload(project));
 }
