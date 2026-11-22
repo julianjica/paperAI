@@ -6,7 +6,9 @@ import type { Project, Settings } from "../core/types.ts";
 import type { AppTool } from "../engine/engine.ts";
 import { resolveComment } from "./comments.ts";
 import { compile } from "./compile.ts";
+import { formatTells } from "../core/tells.ts";
 import { listManuscriptFiles } from "./projects.ts";
+import { scanFile } from "./prose.ts";
 import { runWorker, type WorkerTask } from "./workers.ts";
 
 export function compileTool(project: Project): AppTool {
@@ -30,6 +32,35 @@ export function resolveCommentTool(project: Project): AppTool {
 		handler: async (input) => {
 			const ok = resolveComment(project, String(input.id ?? ""), String(input.note ?? ""));
 			return ok ? { text: `Comment ${input.id} resolved.` } : { text: `No comment with id ${input.id}.`, isError: true };
+		},
+	};
+}
+
+/**
+ * Scan a file the agent edited for the signs of generated prose (see
+ * src/core/tells.ts). Words the author's own text already used are not
+ * flagged. The agent runs it before reporting and fixes every hit in text it
+ * wrote.
+ */
+export function checkProseTool(project: Project, turnId?: string): AppTool {
+	return {
+		name: "check_prose",
+		description: "Scan a manuscript file (optionally a line range) for the signs of generated prose: model vocabulary, sentence-opening connectives, avoided copulas ('serves as'), negative parallelisms ('not only... but'), trailing participial clauses ('..., highlighting...'), disclaimers ('it is important to note'), vague attributions without a citation, section summaries, chat leftovers, curly quotes, uniform sentence length. Words the paper itself already uses are not flagged. Run it on every file you edited before you report, and rewrite every hit in text you wrote until the file comes back clean.",
+		schema: {
+			file: z.string().describe("Path relative to the paper folder, e.g. sections/model.tex"),
+			from: z.number().int().optional().describe("First line to check (default: whole file)"),
+			to: z.number().int().optional().describe("Last line to check"),
+		},
+		handler: async (input) => {
+			const rel = String(input.file ?? "").replace(/^\.\//, "");
+			if (!rel || rel.startsWith("/") || rel.split("/").includes("..") || !isManuscriptFile(rel)) return { text: `Not a manuscript file in the paper folder: ${rel}`, isError: true };
+			try {
+				const tells = scanFile(project, rel, turnId, input.from ? Number(input.from) : undefined, input.to ? Number(input.to) : undefined);
+				if (tells.length === 0) return { text: `${rel}: no signs of generated prose found.` };
+				return { text: `${rel}: ${tells.length} sign${tells.length === 1 ? "" : "s"} of generated prose. Rewrite each in the author's register (leave the author's own untouched text alone):\n${formatTells(tells, rel)}` };
+			} catch (error) {
+				return { text: `Could not read ${rel}: ${error instanceof Error ? error.message : String(error)}`, isError: true };
+			}
 		},
 	};
 }
@@ -103,7 +134,7 @@ export function delegateTool(project: Project, settings: Settings, turnId: strin
 			const problem = validateTasks(tasks, existing, project.folder);
 			if (problem) return { text: problem, isError: true };
 			const batch = ++batches;
-			const results = await Promise.all(tasks.map((t) => runWorker(project, settings, turnId, batch, { ...t, files: t.files.map((f) => f.replace(/^\.\//, "")) }, [compileTool(project)], signal)));
+			const results = await Promise.all(tasks.map((t) => runWorker(project, settings, turnId, batch, { ...t, files: t.files.map((f) => f.replace(/^\.\//, "")) }, [compileTool(project), checkProseTool(project, turnId)], signal)));
 			const lines = results.map((w, i) => `## Worker ${i + 1}: ${w.title} [${w.status}]\n${w.result ?? "(no report)"}`);
 			const failed = results.filter((w) => w.status === "error");
 			// A stopped worker may have left its files half-edited: say so, the agent must check them.

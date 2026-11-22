@@ -76,8 +76,10 @@ test("a turn snapshots, streams, records tool calls, diffs and resumes the sessi
 	assert.ok(calls[0].systemPrompt.includes("The paper's words are fixed"));
 	assert.ok(calls[0].systemPrompt.includes("Numerical checks come after the proof, never instead of it"));
 	assert.ok(calls[0].systemPrompt.includes("Proofs go in the appendix, never in the body"));
+	assert.ok(calls[0].systemPrompt.includes("run check_prose on every file"));
+	assert.ok(calls[0].tools.some((t) => t.name === "check_prose"), "the main agent has the check_prose tool");
 	assert.ok(calls[0].systemPrompt.includes("Write in the author's hand"));
-	assert.deepEqual(calls[0].tools.map((t) => t.name), ["compile", "resolve_comment", "ask_author", "delegate"]);
+	assert.deepEqual(calls[0].tools.map((t) => t.name), ["compile", "check_prose", "resolve_comment", "ask_author", "delegate"]);
 	const ask = await calls[0].tools.find((t) => t.name === "ask_author")!.handler({ question: "Which section?", options: ["Intro", "Model"] });
 	assert.match(ask.text, /End your turn/);
 	// The agent's own compile call plus the post-turn compile.
@@ -126,7 +128,7 @@ test("comments ride along, resolve_comment works, and delegate runs workers with
 	assert.equal(listComments(project)[0].status, "resolved");
 	assert.equal(listComments(project)[0].resolution, "Done twice");
 	assert.equal(calls.length, 3); // main + 2 workers
-	assert.ok(calls.slice(1).every((w) => w.model === "w" && w.tools.map((t) => t.name).join() === "compile" && w.systemPrompt.includes("How a good formal theory paper is written")));
+	assert.ok(calls.slice(1).every((w) => w.model === "w" && w.tools.map((t) => t.name).join() === "compile,check_prose" && w.systemPrompt.includes("How a good formal theory paper is written")));
 	assert.equal(turn.changes.length, 2);
 	const workers = listWorkers(project.id);
 	assert.equal(workers.length, 2);

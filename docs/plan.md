@@ -146,3 +146,20 @@ adapters are tested by replaying real recorded transcripts (tests/fixtures, scri
   latexmk gets an absolute `-outdir`; `synctex edit` is given the absolute PDF path with
   cwd = the paper folder, so input names resolve. `ensureSidecar` migrates a legacy folder
   (own files only, conflicted copies dropped) and removes it.
+
+## Signs of generated prose (2026-11-21)
+- The "author's hand" section of the writing standard was rewritten from the inventory in the
+  Wikipedia field guide "Signs of AI writing" (vocabulary by model era, copula avoidance,
+  negative parallelisms, trailing participles, disclaimers, vague attribution, summaries,
+  rule of three, elegant variation, uniform 8-20-word sentences with only commas and periods,
+  formatting habits, chat leftovers; and the human-syntax signs to keep: plain is/has,
+  plain verbs, definitive statements, qualifiers). The page's own caveat is kept: the signs
+  are regularities, not a word list; the fix is imitating the author, not dodging the list.
+- `src/core/tells.ts`: pure scanner (`findTells`) over LaTeX text, comments and math
+  stripped, per-paragraph patterns, a uniform-sentence-length statistic, `addedLines` for
+  diffs. On a 32,000-word human-written paper it reports 18 hits, mostly the paper's own
+  terms, so it is quiet enough to be a hard requirement.
+- `check_prose` tool (main agent and workers): scans a file or a range; words present in the
+  pre-turn snapshot are the paper's terms and are not flagged (`paperVocabulary`).
+- End of turn: `scanChanges` runs over the added lines of each .tex diff; `TurnRecord.tells`
+  is shown in the Changes tab (file:line, kind, match) so the author sees residue.

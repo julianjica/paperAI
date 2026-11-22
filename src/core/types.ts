@@ -136,6 +136,16 @@ export interface TurnRecord {
 	compile?: CompileResult;
 	/** Backup copies the agent left in the folder, deleted at the end of the turn. */
 	removedCopies?: string[];
+	/** Signs of generated prose found in the lines this turn added (see src/core/tells.ts). */
+	tells?: ProseTell[];
+}
+
+export interface ProseTell {
+	file: string;
+	line: number;
+	kind: string;
+	match: string;
+	advice: string;
 }
 
 export interface CompileResult {

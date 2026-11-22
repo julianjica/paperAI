@@ -11,7 +11,8 @@ import { ensureSidecar, listManuscriptFiles, sidecar } from "./projects.ts";
 import { mainSystemPrompt } from "./prompt.ts";
 import { settingsFor, type EffectiveSettings } from "./settings.ts";
 import { diffSinceSnapshot, hasSnapshot, pruneSnapshots, removeDuplicateCopies, takeSnapshot } from "./snapshots.ts";
-import { askAuthorTool, compileTool, delegateTool, resolveCommentTool } from "./tools.ts";
+import { scanChanges } from "./prose.ts";
+import { askAuthorTool, checkProseTool, compileTool, delegateTool, resolveCommentTool } from "./tools.ts";
 
 /**
  * The turn pipeline: snapshot → run the main agent → diff → compile → persist.
@@ -180,7 +181,7 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 		const files = listManuscriptFiles(project.folder);
 		const engine = engineFor(settings.engine);
 		const resume = record.session?.engine === settings.engine ? record.session.id : undefined;
-		const tools = [compileTool(project), resolveCommentTool(project), askAuthorTool(), delegateTool(project, settings, turnId, controller.signal)];
+		const tools = [compileTool(project), checkProseTool(project, turnId), resolveCommentTool(project), askAuthorTool(), delegateTool(project, settings, turnId, controller.signal)];
 		for await (const e of engine.run({ cwd: project.folder, systemPrompt: mainSystemPrompt(project, files, settings.styleNote), model: settings.model, effort: settings.effort, input: userText, resume, tools, signal: controller.signal, label: `turn ${turnId}` })) {
 			publish(project.id, { type: "agent", turnId, event: e });
 			switch (e.type) {
@@ -240,6 +241,9 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 			const removed = removeDuplicateCopies(project, turnId);
 			if (removed.length) turn.removedCopies = removed;
 			turn.changes = diffSinceSnapshot(project, turnId);
+			// What a detector would still see in the lines this turn added; shown to the author in the Changes tab.
+			const tells = scanChanges(project, turnId, turn.changes);
+			if (tells.length) turn.tells = tells;
 		} else turn.changes = [];
 	} catch (error) {
 		assistant.error ??= `After the run: ${error instanceof Error ? error.message : String(error)}`;

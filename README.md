@@ -166,6 +166,26 @@ duplicates and constant churn. The only file the app writes into the folder is t
 compiled `<main>.pdf`. A `.researchai/` folder left by an older version is moved out and
 removed the first time the paper is opened.
 
+## Writing that is not detected as generated
+
+The writing standard the agents follow (`src/server/writing-guide.ts`) lists the signs that
+readers and detectors use to recognise generated prose, drawn from the published field
+guides: model vocabulary by model generation, sentence-opening connectives, avoided copulas
+("serves as" for "is"), negative parallelisms ("not only... but also", "not X but Y",
+"rather than" as a corrective frame), trailing participial clauses (", highlighting the
+importance of..."), didactic and corrective disclaimers ("it is important to note", "should
+be understood as"), vague attributions without a citation, section summaries, triads,
+synonym rotation, uniform sentence length and chat leftovers. The rule is to imitate the
+author's paragraphs next to the edit, not to avoid a word list.
+
+Two mechanisms back the rule:
+
+- `check_prose`, a tool the main agent and every worker have: scans a file for those
+  patterns (words the author's own text already uses are never flagged) and the agent must
+  run it on every edited file and rewrite every hit before reporting.
+- At the end of every turn the app scans the lines the turn added and lists what a
+  detector would still see under the turn in the Changes tab, with file and line.
+
 Agents never make backup copies of files: every turn is snapshotted and can be reverted,
 and a copy of an existing file left in the folder at the end of a turn is deleted (the
 Changes tab says so).

@@ -39,6 +39,20 @@ function Turn({ turn, running, onRevert }: { turn: TurnRecord; running: boolean;
 					Backup copies removed: <span className="font-mono">{turn.removedCopies.join(", ")}</span>
 				</div>
 			)}
+			{turn.tells && turn.tells.length > 0 && (
+				<details className="mt-1 text-xs">
+					<summary className="cursor-pointer text-warn" title="Patterns that mark generated prose (model vocabulary, 'not only... but', trailing '..., highlighting...', disclaimers, uniform sentences). Ask the agent to rewrite them, or fix them yourself.">
+						{turn.tells.length} sign{turn.tells.length === 1 ? "" : "s"} of generated prose left in this turn&apos;s edits
+					</summary>
+					<ul className="mt-1 space-y-1 pl-2">
+						{turn.tells.map((t, i) => (
+							<li key={i}>
+								<span className="font-mono">{t.file}:{t.line}</span> <span className="text-ink-muted">{t.kind}</span> &ldquo;{t.match}&rdquo;
+							</li>
+						))}
+					</ul>
+				</details>
+			)}
 			{turn.changes.length === 0 && <div className="text-xs text-ink-muted">No file changes.</div>}
 			{turn.changes.map((c) => (
 				<div key={c.path} className="mt-1">
