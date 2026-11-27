@@ -16,12 +16,25 @@ function save(project: Project, comments: Comment[]) {
 	publish(project.id, { type: "comments", comments });
 }
 
-export function addComment(project: Project, input: Omit<Comment, "id" | "createdAt" | "status">): Comment {
+export function addComment(project: Project, input: Omit<Comment, "id" | "createdAt" | "status" | "root">): Comment {
 	const comments = listComments(project);
-	const c: Comment = { ...input, id: nanoid(8), createdAt: Date.now(), status: "pending" };
+	const c: Comment = { ...input, root: project.mainTex, id: nanoid(8), createdAt: Date.now(), status: "pending" };
 	comments.push(c);
 	save(project, comments);
 	return c;
+}
+
+/** Comments made before roots were recorded belong to the root that was current until now. */
+export function stampCommentRoots(project: Project, root: string): number {
+	const comments = listComments(project);
+	let n = 0;
+	for (const c of comments) {
+		if (c.root) continue;
+		c.root = root;
+		n++;
+	}
+	if (n) save(project, comments);
+	return n;
 }
 
 export function updateComment(project: Project, id: string, patch: Partial<Comment>): Comment | undefined {

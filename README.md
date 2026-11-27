@@ -163,11 +163,12 @@ tests/          deterministic tests (no LLM, no network)
 docs/plan.md    design record: decisions, architecture, review fixes, status
 ```
 
-A project is one root document: a folder plus its main .tex, with its own chat, comments
-and history. To work on another root file of the same folder (a slides deck, a short
-version, a submission variant), open the paper's settings and pick it under "Main file":
-the app opens that document's project (created on first use with the same settings), and
-picking the previous file brings its chat back.
+To work on another root file of the same folder (a slides deck, a short version, a
+submission variant), open the paper's settings and pick it under "Main file". The switch
+stays inside the project: the chat, its history, the comments and the attached documents
+are kept, the new root is compiled and shown, and the agent is told about the change with
+the next message. Comments remember the root they were made on and are highlighted only
+while that root is shown (the Comments tab tags the others).
 
 Per-project state (build output, chat, comments, snapshots, attached documents) lives under the app's data
 directory, `data/projects/<id>/`, never inside the paper folder: a paper folder is usually

@@ -11,7 +11,7 @@ import { sidecar } from "./projects.ts";
  * One latexmk per project at a time. A request that arrives while one runs
  * waits for the NEXT run; several such requests coalesce into one.
  */
-interface State { running?: Promise<CompileResult>; pending?: Promise<CompileResult>; version: number; last?: CompileResult }
+interface State { running?: Promise<CompileResult>; pending?: Promise<CompileResult>; next?: Project; version: number; last?: CompileResult }
 const g = globalThis as unknown as { __raCompile?: Map<string, State> };
 g.__raCompile ??= new Map();
 const states = g.__raCompile; // survives dev-server module reloads
@@ -77,13 +77,28 @@ export function lastCompile(project: Project): CompileResult | undefined {
 	return state(project.id).last;
 }
 
+/**
+ * After a root switch: the served PDF and the last result belong to the old
+ * root, so the viewer would show the wrong document until the new build
+ * lands (forever, if it fails). Forget both; the next compile publishes anew.
+ */
+export function forgetBuild(project: Project): void {
+	const s = state(project.id);
+	s.last = undefined;
+	fs.rmSync(servedPdfPath(project), { force: true });
+}
+
 export function compile(project: Project): Promise<CompileResult> {
 	const s = state(project.id);
 	if (s.running) {
+		// The queued build uses the latest project record (the root may have been switched meanwhile).
+		s.next = project;
 		if (!s.pending) {
 			s.pending = s.running.then(() => {
 				s.pending = undefined;
-				return compile(project);
+				const next = s.next ?? project;
+				s.next = undefined;
+				return compile(next);
 			});
 		}
 		return s.pending;

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import type { AgentEvent, Attachment, ChatMessage, Comment, CompileResult, Project, ProjectEvent, QueuedMessage, TurnRecord, WorkerState } from "@/src/core";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -33,7 +32,6 @@ interface Loaded {
 type Tab = "chat" | "comments" | "activity" | "changes";
 
 export function Workspace({ id }: { id: string }) {
-	const router = useRouter();
 	const [data, setData] = useState<Loaded | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [tab, setTab] = useState<Tab>("chat");
@@ -356,6 +354,7 @@ export function Workspace({ id }: { id: string }) {
 				</a>
 				<span className="truncate font-medium">{data.project.name}</span>
 				<span className="truncate text-xs text-ink-muted">{data.project.folder}</span>
+				<span className="truncate text-xs text-ink-muted" title="Main file (change it in Settings)">{data.project.mainTex}</span>
 				<div className="ml-auto flex items-center gap-1 rounded-md border border-line p-0.5 text-xs">
 					<button className={cn("rounded px-2 py-0.5", view === "pdf" && "bg-panel-2")} onClick={() => setView("pdf")}>
 						PDF
@@ -404,6 +403,7 @@ export function Workspace({ id }: { id: string }) {
 						<div className={cn("min-h-0 flex-1", tab !== "comments" && "hidden")}>
 							<CommentsPanel
 								comments={data.comments}
+								currentRoot={data.project.mainTex}
 								activeId={activeComment}
 								running={running}
 								onSelect={selectComment}
@@ -433,7 +433,7 @@ export function Workspace({ id }: { id: string }) {
 						<PdfViewer
 							projectId={id}
 							version={pdfVersion}
-							comments={data.comments}
+							comments={data.comments.filter((c) => !c.root || c.root === data.project.mainTex)}
 							activeCommentId={activeComment}
 							onSelectComment={selectComment}
 							onDraft={onDraft}
@@ -456,7 +456,7 @@ export function Workspace({ id }: { id: string }) {
 				</div>
 			)}
 			{toast && <div className="fixed bottom-4 right-4 z-50 max-w-md rounded-md border border-line bg-panel px-3 py-2 shadow-lg">{toast}</div>}
-			{settingsOpen && <SettingsDialog projectId={id} onClose={() => setSettingsOpen(false)} onSwitchProject={(pid) => router.push(`/p/${pid}`)} />}
+			{settingsOpen && <SettingsDialog projectId={id} onClose={() => setSettingsOpen(false)} onProjectChange={() => void load()} />}
 		</div>
 	);
 }

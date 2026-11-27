@@ -1,10 +1,10 @@
 export { readSettings, writeSettings, settingsFor, DEFAULT_SETTINGS, type EffectiveSettings } from "./settings.ts";
 export { listProjects, getProject, addProject, touchProject, removeProject, updateProjectSettings, switchMainTex, listManuscriptFiles, listMainCandidates, sidecar, legacySidecar, ensureSidecar } from "./projects.ts";
 export { subscribe, publish } from "./bus.ts";
-export { compile, pdfPath, servedPdfPath, lastCompile } from "./compile.ts";
+export { compile, pdfPath, servedPdfPath, lastCompile, forgetBuild } from "./compile.ts";
 export { locate } from "./synctex.ts";
-export { listComments, addComment, updateComment, deleteComment, replyToComment } from "./comments.ts";
-export { readChat, resetChat } from "./chat.ts";
+export { listComments, addComment, updateComment, deleteComment, replyToComment, stampCommentRoots } from "./comments.ts";
+export { readChat, writeChat, resetChat } from "./chat.ts";
 export { startTurn, submit, listQueued, removeQueued, abortTurn, turnRunning, activeTurnId, recoverInterruptedTurns } from "./turn.ts";
 export { closeStaleSent } from "./comments.ts";
 export { revertToSnapshot, hasSnapshot } from "./snapshots.ts";

@@ -146,7 +146,10 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	activeTurnIds.set(project.id, turnId);
 	const comments = input.sendComments ? sendPending(project, turnId) : [];
 	// The reply-format reminder rides on every input: a resumed session otherwise keeps the habits of its earlier turns.
-	const userText = [input.text.trim(), attachmentBlock(project, attachments), renderCommentBatch(comments), REPLY_FORMAT_REMINDER].filter(Boolean).join("\n\n");
+	// A root switched since the last turn is said in the input: a resumed session may hold the old instructions.
+	const switched = record.mainTex && record.mainTex !== project.mainTex ? `(The author switched the main file from ${record.mainTex} to ${project.mainTex}. From now on ${project.mainTex} is the document that is compiled, shown and commented; edit it and the files it inputs unless told otherwise.)` : "";
+	record.mainTex = project.mainTex;
+	const userText = [switched, input.text.trim(), attachmentBlock(project, attachments), renderCommentBatch(comments), REPLY_FORMAT_REMINDER].filter(Boolean).join("\n\n");
 	const minutes = settings.turnTimeoutMin ?? DEFAULT_TURN_TIMEOUT_MIN;
 	const ceiling = setTimeout(() => controller.abort(new TurnTimeout(minutes)), minutes * 60_000);
 	ceiling.unref();

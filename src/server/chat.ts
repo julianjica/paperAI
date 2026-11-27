@@ -7,6 +7,8 @@ export interface ChatRecord {
 	messages: ChatMessage[];
 	turns: TurnRecord[];
 	session?: { engine: string; id: string };
+	/** The main .tex the last turn ran on; a different root at the next turn is announced to the agent. */
+	mainTex?: string;
 }
 
 const file = (p: Project) => sidecar(p, "chat.json");

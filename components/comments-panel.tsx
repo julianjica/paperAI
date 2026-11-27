@@ -9,6 +9,7 @@ type Group = "active" | "resolved";
 
 export function CommentsPanel({
 	comments,
+	currentRoot,
 	activeId,
 	running,
 	onSelect,
@@ -19,6 +20,8 @@ export function CommentsPanel({
 	onSendAll,
 }: {
 	comments: Comment[];
+	/** The main .tex shown now; comments made on another root are tagged. */
+	currentRoot: string;
 	activeId: string | null;
 	running: boolean;
 	onSelect: (id: string) => void;
@@ -66,11 +69,11 @@ export function CommentsPanel({
 						{activeCount === 0 && <p className="p-4 text-ink-muted">Highlight text in the PDF and write what should change. Then send the batch.</p>}
 						{pending.length > 0 && <Header>Pending</Header>}
 						{pending.map((c) => (
-							<Row key={c.id} c={c} active={c.id === activeId} onSelect={onSelect} onDelete={onDelete} onReply={reply} />
+							<Row key={c.id} c={c} currentRoot={currentRoot} active={c.id === activeId} onSelect={onSelect} onDelete={onDelete} onReply={reply} />
 						))}
 						{sent.length > 0 && <Header>In progress</Header>}
 						{sent.map((c) => (
-							<Row key={c.id} c={c} active={c.id === activeId} onSelect={onSelect} />
+							<Row key={c.id} c={c} currentRoot={currentRoot} active={c.id === activeId} onSelect={onSelect} />
 						))}
 					</>
 				)}
@@ -78,7 +81,7 @@ export function CommentsPanel({
 					<>
 						{resolved.length === 0 && <p className="p-4 text-ink-muted">Comments the agent has addressed will appear here with its note.</p>}
 						{resolved.map((c) => (
-							<Row key={c.id} c={c} active={c.id === activeId} onSelect={onSelect} onDelete={onDelete} onReopen={onReopen} onReply={reply} />
+							<Row key={c.id} c={c} currentRoot={currentRoot} active={c.id === activeId} onSelect={onSelect} onDelete={onDelete} onReopen={onReopen} onReply={reply} />
 						))}
 					</>
 				)}
@@ -93,6 +96,7 @@ function Header({ children }: { children: React.ReactNode }) {
 
 function Row({
 	c,
+	currentRoot,
 	active,
 	onSelect,
 	onDelete,
@@ -100,6 +104,7 @@ function Row({
 	onReply,
 }: {
 	c: Comment;
+	currentRoot: string;
 	active: boolean;
 	onSelect: (id: string) => void;
 	onDelete?: (id: string) => void;
@@ -113,6 +118,7 @@ function Row({
 				{c.status === "sent" && <Loader2 size={12} className="animate-spin" />}
 				{c.status === "resolved" && <Check size={12} className="text-accent" />}
 				<span className="font-mono">{c.file ? `${c.file}:${c.line}` : `p. ${c.page}`}</span>
+				{c.root && c.root !== currentRoot && <span title="Made on another root document; highlighted only while that one is shown">on {c.root}</span>}
 				<span className="ml-auto flex gap-2 opacity-0 group-hover:opacity-100">
 					{onReopen && (
 						<button

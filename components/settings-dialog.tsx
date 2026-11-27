@@ -19,7 +19,7 @@ const select = "w-full rounded-md border border-line bg-panel-2 px-2 py-1";
  * Each project control's first option is "Use default (…)" so the author sees
  * what falls through from the global section below.
  */
-export function SettingsDialog({ projectId, onClose, onSwitchProject }: { projectId?: string; onClose: () => void; onSwitchProject?: (id: string) => void }) {
+export function SettingsDialog({ projectId, onClose, onProjectChange }: { projectId?: string; onClose: () => void; onProjectChange?: () => void }) {
 	const [data, setData] = useState<Loaded | null>(null);
 	const [proj, setProj] = useState<ProjectLoaded | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -45,14 +45,13 @@ export function SettingsDialog({ projectId, onClose, onSwitchProject }: { projec
 		void save({ engine, model: models[0]?.id ?? "", workerModel: models[1]?.id ?? models[0]?.id ?? "" });
 	};
 
-	// Each root file is its own document (chat, comments, snapshots): switching opens that project.
+	// The root switches in place: the chat, comments and history stay; the workspace reloads for the new PDF.
 	const changeMainTex = async (mainTex: string) => {
 		if (!proj || !projectId || mainTex === proj.mainTex) return;
 		setProj({ ...proj, mainTex });
 		try {
-			const r = await api.put<ProjectLoaded>(`/api/projects/${projectId}/settings`, { mainTex });
-			if (r.project.id !== projectId) onSwitchProject?.(r.project.id);
-			else setProj(r);
+			setProj(await api.put<ProjectLoaded>(`/api/projects/${projectId}/settings`, { mainTex }));
+			onProjectChange?.();
 		} catch (e) {
 			setProj(proj);
 			setError(e instanceof Error ? e.message : String(e));
@@ -111,7 +110,7 @@ export function SettingsDialog({ projectId, onClose, onSwitchProject }: { projec
 									</option>
 								))}
 							</select>
-							<p className="mt-1 text-xs text-ink-muted">The document being edited: compiled, shown, commented and discussed with the agent. Every .tex in the folder with \documentclass is listed. Each has its own chat, comments and history; switching opens it, and switching back brings the previous chat back.</p>
+							<p className="mt-1 text-xs text-ink-muted">The document being edited: compiled, shown, commented and discussed with the agent. Every .tex in the folder with \documentclass is listed. Switching keeps this chat, its comments and history; the agent is told about the new root at the next message. Comments made on another root stay listed but are highlighted only while that root is shown.</p>
 						</Row>
 						<Row label="Engine">
 							<select className={select} value={proj.settings.engine ?? ""} onChange={(e) => changeProjectEngine(e.target.value as EngineId | "")}>

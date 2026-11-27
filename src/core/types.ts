@@ -69,6 +69,8 @@ export interface Comment {
 	line: number | null;
 	/** What the user wants done here. */
 	text: string;
+	/** The main .tex whose PDF the highlight was drawn on; the viewer shows it only while that root is current. Absent on old comments. */
+	root?: string;
 	status: CommentStatus;
 	/** The turn that carried it to the agent. */
 	turnId?: string;

@@ -56,7 +56,8 @@ export function addProject(folder: string, mainTex: string): Project {
 	if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) throw new Error(`Not a folder: ${abs}`);
 	if (!fs.existsSync(path.join(abs, mainTex))) throw new Error(`Main file not found: ${mainTex}`);
 	const projects = readJson<Project[]>(FILE(), []);
-	const existing = projects.find((p) => p.folder === abs && p.mainTex === mainTex);
+	// An in-place root switch can leave two projects on the same root: open the one used last.
+	const existing = projects.filter((p) => p.folder === abs && p.mainTex === mainTex).sort((a, b) => b.openedAt - a.openedAt)[0];
 	const now = Date.now();
 	if (existing) {
 		existing.openedAt = now;
@@ -102,30 +103,25 @@ export function updateProjectSettings(id: string, patch: ProjectSettings): Proje
 }
 
 /**
- * Switch to another main .tex of the same folder. A project is one root
- * document (folder + main file) with its own chat, comments and snapshots,
- * so switching means opening the sibling project for that file, created on
- * first use with this project's settings copied over. Switching back finds
- * the original again, chat intact.
+ * Switch the main .tex of a project in place (the file that is compiled,
+ * shown, commented and edited). Chat, comments, snapshots and attached
+ * documents stay with the project: the author is still working on the same
+ * paper, through a different root file. Returns the project and the root it
+ * had, so callers can stamp what belonged to the old root.
  */
-export function switchMainTex(id: string, mainTex: string): Project {
+export function switchMainTex(id: string, mainTex: string): { project: Project; previous: string } {
 	const projects = readJson<Project[]>(FILE(), []);
 	const p = projects.find((x) => x.id === id);
 	if (!p) throw new Error("No such project");
 	const rel = mainTex.replace(/^\.\//, "").split(path.sep).join("/");
 	if (!rel.toLowerCase().endsWith(".tex") || rel.startsWith("/") || rel.split("/").includes("..")) throw new Error("The main file must be a .tex file inside the paper folder.");
 	if (!fs.existsSync(path.join(p.folder, rel))) throw new Error(`Main file not found: ${rel}`);
-	const now = Date.now();
-	let sibling = projects.find((x) => x.folder === p.folder && x.mainTex === rel);
-	if (!sibling) {
-		sibling = { id: nanoid(10), folder: p.folder, mainTex: rel, name: `${path.basename(p.folder)} / ${rel}`, createdAt: now, openedAt: now };
-		if (p.settings) sibling.settings = { ...p.settings };
-		projects.push(sibling);
-	}
-	sibling.openedAt = now;
+	const previous = p.mainTex;
+	p.mainTex = rel;
+	p.name = `${path.basename(p.folder)} / ${rel}`;
+	p.openedAt = Date.now();
 	writeJson(FILE(), projects);
-	ensureSidecar(sibling);
-	return sibling;
+	return { project: p, previous };
 }
 
 export function removeProject(id: string): void {

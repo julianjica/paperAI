@@ -185,3 +185,19 @@ adapters are tested by replaying real recorded transcripts (tests/fixtures, scri
 - A window-level dragover/drop guard keeps the browser (and the Electron window) from
   navigating to the dropped file. Attachment-only messages are allowed to start a turn.
 
+## Root switch stays in the project (2026-11-27)
+- The sibling-project design (one project per root file, 2026-11-12) lost the chat on every
+  switch, which is not what the owner wanted: `switchMainTex` now changes `mainTex` in place
+  and returns the previous root. The settings PUT refuses while a turn runs, stamps records
+  made before roots were tracked (`stampCommentRoots`, `ChatRecord.mainTex`), drops the old
+  root's served PDF and last result (`forgetBuild`), and compiles the new root.
+- The next turn's input starts with a notice naming the old and new root (a resumed session
+  may keep its first instructions); `ChatRecord.mainTex` tracks what the last turn ran on.
+- `Comment.root` is the root the highlight was drawn on; the viewer draws pending comments
+  of the current root only, the panel tags the others. `appOwnedFile` treats every root's
+  exported PDF as the app's (any `x.pdf` whose `x.tex` has `\documentclass`), so a revert of
+  a turn made on one root never deletes the other root's PDF.
+- A queued compile runs on the latest project record (`State.next`), not the one captured
+  when it was queued. `addProject` returns the most recently opened of duplicate
+  (folder, root) entries; siblings created under the old design stay as separate projects.
+

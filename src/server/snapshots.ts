@@ -13,9 +13,21 @@ import { sidecar } from "./projects.ts";
  */
 interface Manifest { files: string[]; manuscript: string[] }
 
-/** Files the app itself writes into the folder; never part of a turn's changes. */
+/**
+ * Files the app itself writes into the folder; never part of a turn's
+ * changes. That is the exported PDF of every root document (the current one
+ * and any the project was switched from), so a revert of a turn made on one
+ * root never deletes the other root's PDF.
+ */
 export function appOwnedFile(project: Project, rel: string): boolean {
-	return rel === project.mainTex.replace(/\.tex$/i, "") + ".pdf";
+	if (!rel.endsWith(".pdf")) return false;
+	const tex = rel.replace(/\.pdf$/, ".tex");
+	if (tex === project.mainTex) return true;
+	try {
+		return /\\documentclass/.test(fs.readFileSync(path.join(project.folder, tex), "utf8"));
+	} catch {
+		return false;
+	}
 }
 
 function walkAll(folder: string): string[] {
