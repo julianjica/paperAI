@@ -115,7 +115,9 @@ browser ──SSE──▶ Next.js route handlers ──▶ turn pipeline
   the app's instructions appended to the CLI's prompt. The CLI's built-in subagents are
   disabled so that all delegation goes through the app and is visible.
 - **App tools.** `compile` runs `latexmk -pdf -synctex=1` through a per-project queue (one
-  build at a time; concurrent requests coalesce). `resolve_comment` records the note you see
+  build at a time; concurrent requests coalesce). A build is killed after 10 minutes, with
+  the end of the log in the error, since a TeX macro loop would otherwise keep pdflatex at
+  full CPU forever and the agent waiting on it; stopping the turn stops the build too. `resolve_comment` records the note you see
   in the Comments tab. `delegate` takes a list of tasks, each with a title, full instructions
   and the files it may edit; it runs them in parallel as one-shot worker sessions on the same
   engine and returns their reports.

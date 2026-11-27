@@ -11,13 +11,13 @@ import { listManuscriptFiles } from "./projects.ts";
 import { scanFile } from "./prose.ts";
 import { runWorker, type WorkerTask } from "./workers.ts";
 
-export function compileTool(project: Project): AppTool {
+export function compileTool(project: Project, signal?: AbortSignal): AppTool {
 	return {
 		name: "compile",
 		description: "Compile the paper with latexmk (pdf + synctex) through the app's build queue and refresh the PDF. Returns ok or the LaTeX errors. Use this instead of running latexmk yourself.",
 		schema: {},
 		handler: async () => {
-			const r = await compile(project);
+			const r = await compile(project, signal);
 			if (r.ok) return { text: `Compiled OK in ${(r.durationMs / 1000).toFixed(1)}s.` };
 			return { text: `Compile FAILED:\n${r.errors.join("\n")}`, isError: true };
 		},
@@ -134,7 +134,7 @@ export function delegateTool(project: Project, settings: Settings, turnId: strin
 			const problem = validateTasks(tasks, existing, project.folder);
 			if (problem) return { text: problem, isError: true };
 			const batch = ++batches;
-			const results = await Promise.all(tasks.map((t) => runWorker(project, settings, turnId, batch, { ...t, files: t.files.map((f) => f.replace(/^\.\//, "")) }, [compileTool(project), checkProseTool(project, turnId)], signal)));
+			const results = await Promise.all(tasks.map((t) => runWorker(project, settings, turnId, batch, { ...t, files: t.files.map((f) => f.replace(/^\.\//, "")) }, [compileTool(project, signal), checkProseTool(project, turnId)], signal)));
 			const lines = results.map((w, i) => `## Worker ${i + 1}: ${w.title} [${w.status}]\n${w.result ?? "(no report)"}`);
 			const failed = results.filter((w) => w.status === "error");
 			// A stopped worker may have left its files half-edited: say so, the agent must check them.

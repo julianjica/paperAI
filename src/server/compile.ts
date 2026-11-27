@@ -16,8 +16,10 @@ const g = globalThis as unknown as { __raCompile?: Map<string, State> };
 g.__raCompile ??= new Map();
 const states = g.__raCompile; // survives dev-server module reloads
 
-/** Test seam: replace latexmk with a scripted run. */
-export const compileRuntime: { run?: (project: Project) => Promise<{ ok: boolean; errors: string[] }> } = {};
+/** A build longer than this is a runaway (a macro loop keeps pdflatex at 100% CPU forever); it is killed and reported. */
+export const DEFAULT_COMPILE_TIMEOUT_MS = 10 * 60_000;
+/** Test seams: replace latexmk with a scripted run; shorten the ceiling. */
+export const compileRuntime: { run?: (project: Project) => Promise<{ ok: boolean; errors: string[] }>; timeoutMs: number } = { timeoutMs: DEFAULT_COMPILE_TIMEOUT_MS };
 
 function state(id: string): State {
 	let s = states.get(id);
@@ -88,7 +90,11 @@ export function forgetBuild(project: Project): void {
 	fs.rmSync(servedPdfPath(project), { force: true });
 }
 
-export function compile(project: Project): Promise<CompileResult> {
+/**
+ * Compile the project. `signal` (the turn's) stops a build in progress when
+ * the turn is stopped; a coalesced request inherits the running build.
+ */
+export function compile(project: Project, signal?: AbortSignal): Promise<CompileResult> {
 	const s = state(project.id);
 	if (s.running) {
 		// The queued build uses the latest project record (the root may have been switched meanwhile).
@@ -111,29 +117,55 @@ export function compile(project: Project): Promise<CompileResult> {
 				publish(project.id, { type: "compiled", result });
 				return result;
 			})
-		: runLatexmk(project, s);
+		: runLatexmk(project, s, signal);
 	s.running = run.finally(() => {
 		s.running = undefined;
 	});
 	return s.running;
 }
 
-function runLatexmk(project: Project, s: State): Promise<CompileResult> {
+function runLatexmk(project: Project, s: State, signal?: AbortSignal): Promise<CompileResult> {
 	const started = Date.now();
 	const outdir = buildDir(project);
 	fs.mkdirSync(outdir, { recursive: true });
+	const logFile = path.join(outdir, `${path.basename(project.mainTex, ".tex")}.log`);
+	const logTail = () => {
+		try {
+			return fs.readFileSync(logFile, "utf8").split("\n").filter((l) => l.trim()).slice(-12).join("\n");
+		} catch {
+			return "";
+		}
+	};
 	// The build directory is outside the paper folder (the app's data dir): latexmk takes an absolute outdir.
 	return new Promise((resolve) => {
+		// Its own process group, so a stop reaches pdflatex under latexmk, not just the perl wrapper.
 		const child = spawn("latexmk", ["-pdf", "-synctex=1", "-interaction=nonstopmode", "-file-line-error", `-outdir=${outdir}`, project.mainTex], {
 			cwd: project.folder,
 			env: { ...process.env, PATH: texPath() },
 			stdio: ["ignore", "pipe", "pipe"],
+			detached: true,
 		});
 		let out = "";
 		child.stdout.on("data", (d: Buffer) => (out += d.toString()));
 		child.stderr.on("data", (d: Buffer) => (out += d.toString()));
+		let stopped: string | undefined;
+		const stop = (why: string) => {
+			if (stopped || child.exitCode !== null) return;
+			stopped = why;
+			try {
+				if (child.pid) process.kill(-child.pid, "SIGKILL");
+				else child.kill("SIGKILL");
+			} catch {
+				child.kill("SIGKILL");
+			}
+		};
+		const minutes = Math.round(compileRuntime.timeoutMs / 60_000);
+		const ceiling = setTimeout(() => stop(`latexmk was stopped after ${minutes < 1 ? `${compileRuntime.timeoutMs / 1000}s` : `${minutes} minutes`}: TeX did not finish (a macro loop, or a package that never terminates). Find what was added since the last good build. The log ends with:\n${logTail()}`), compileRuntime.timeoutMs);
+		const onAbort = () => stop("The compile was stopped with the turn.");
+		signal?.addEventListener("abort", onAbort, { once: true });
 		const finish = (ok: boolean, extra?: string) => {
-			const logFile = path.join(outdir, `${path.basename(project.mainTex, ".tex")}.log`);
+			clearTimeout(ceiling);
+			signal?.removeEventListener("abort", onAbort);
 			let log = "";
 			try {
 				log = fs.readFileSync(logFile, "utf8");
@@ -141,7 +173,8 @@ function runLatexmk(project: Project, s: State): Promise<CompileResult> {
 				log = out;
 			}
 			let errors = ok ? [] : extractLatexErrors(log);
-			if (!ok && errors.length === 0) errors = [extra ?? out.trim().split("\n").slice(-5).join("\n") ?? "latexmk failed"];
+			if (stopped) errors = [stopped, ...errors];
+			else if (!ok && errors.length === 0) errors = [extra ?? out.trim().split("\n").slice(-5).join("\n") ?? "latexmk failed"];
 			// A failed build can still leave a usable PDF (latexmk keeps going past errors).
 			if (publishPdf(project)) {
 				s.version += 1;
@@ -153,6 +186,6 @@ function runLatexmk(project: Project, s: State): Promise<CompileResult> {
 			resolve(result);
 		};
 		child.on("error", (e) => finish(false, e.message.includes("ENOENT") ? "latexmk not found. Install TeX Live (MacTeX) or add it to PATH." : e.message));
-		child.on("exit", (code) => finish(code === 0));
+		child.on("exit", (code) => finish(code === 0 && !stopped));
 	});
 }

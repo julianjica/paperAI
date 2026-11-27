@@ -194,7 +194,7 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 		const files = listManuscriptFiles(project.folder);
 		const engine = engineFor(settings.engine);
 		const resume = record.session?.engine === settings.engine ? record.session.id : undefined;
-		const tools = [compileTool(project), checkProseTool(project, turnId), resolveCommentTool(project), askAuthorTool(), delegateTool(project, settings, turnId, controller.signal)];
+		const tools = [compileTool(project, controller.signal), checkProseTool(project, turnId), resolveCommentTool(project), askAuthorTool(), delegateTool(project, settings, turnId, controller.signal)];
 		for await (const e of engine.run({ cwd: project.folder, systemPrompt: mainSystemPrompt(project, files, settings.styleNote, attachmentInventory(project, record.messages)), model: settings.model, effort: settings.effort, input: userText, resume, tools, signal: controller.signal, label: `turn ${turnId}` })) {
 			publish(project.id, { type: "agent", turnId, event: e });
 			switch (e.type) {

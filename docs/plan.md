@@ -201,3 +201,13 @@ adapters are tested by replaying real recorded transcripts (tests/fixtures, scri
   when it was queued. `addProject` returns the most recently opened of duplicate
   (folder, root) entries; siblings created under the old design stay as separate projects.
 
+## Compile ceiling (2026-11-27)
+- A turn hung for 90 minutes on the compile tool: revision-note macros (todonotes) the agent
+  added sent pdflatex into a loop after page 4, at 100% CPU with no further log output. The
+  turn's own ceiling closed the turn, but the end-of-turn compile queued behind the stuck
+  build, so the project stayed "running" and every later message queued behind it.
+- `runLatexmk` now spawns latexmk in its own process group and kills the group after
+  `compileRuntime.timeoutMs` (10 minutes), reporting "stopped after" with the last log lines;
+  the turn's abort signal stops a build in progress the same way. Tested with a fake latexmk
+  on PATH whose child must die with it.
+
