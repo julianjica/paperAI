@@ -1,8 +1,9 @@
 import { nanoid } from "nanoid";
 import { renderCommentBatch } from "../core/comments.ts";
-import type { AssistantPart, ChatMessage, Comment, Project, QueuedMessage, TurnRecord } from "../core/types.ts";
+import type { AssistantPart, Attachment, ChatMessage, Comment, Project, QueuedMessage, TurnRecord } from "../core/types.ts";
 import { engineFor } from "../engine/index.ts";
 import { publish } from "./bus.ts";
+import { attachmentBlock, attachmentInventory, resolveAttachments } from "./attachments.ts";
 import { readChat, writeChat, type ChatRecord } from "./chat.ts";
 import { closeSentComments, closeStaleSent, listComments, sendPending } from "./comments.ts";
 import { compile } from "./compile.ts";
@@ -49,7 +50,12 @@ class TurnTimeout extends Error {
 	}
 }
 
-export interface TurnInput { text: string; sendComments: boolean }
+export interface TurnInput {
+	text: string;
+	sendComments: boolean;
+	/** Ids of documents uploaded beforehand (POST .../attachments). */
+	attachments?: string[];
+}
 
 /**
  * A turn that was running when the server died left a turn without endedAt
@@ -83,8 +89,10 @@ export const REPLY_FORMAT_REMINDER = "(Reply format: write every formula in your
  */
 export function submit(project: Project, input: TurnInput): { turnId: string } | { queued: QueuedMessage } {
 	if (!active.has(project.id)) return { turnId: startTurn(project, input).turnId };
-	if (!input.text.trim() && !(input.sendComments && listComments(project).some((c) => c.status === "pending"))) throw new Error("Nothing to send.");
+	const attachments = resolveAttachments(project, input.attachments ?? []);
+	if (!input.text.trim() && attachments.length === 0 && !(input.sendComments && listComments(project).some((c) => c.status === "pending"))) throw new Error("Nothing to send.");
 	const queued: QueuedMessage = { id: nanoid(8), text: input.text.trim(), sendComments: input.sendComments, timestamp: Date.now() };
+	if (attachments.length) queued.attachments = attachments;
 	writeQueue(project, [...listQueued(project), queued]);
 	return { queued };
 }
@@ -114,7 +122,7 @@ function startNextQueued(project: Project): void {
 	if (!next) return;
 	writeQueue(project, queued.slice(1));
 	try {
-		startTurn(project, { text: next.text, sendComments: next.sendComments });
+		startTurn(project, { text: next.text, sendComments: next.sendComments, attachments: next.attachments?.map((a) => a.id) });
 	} catch (error) {
 		console.error("[queue] could not start the next message:", error);
 		startNextQueued(project);
@@ -131,17 +139,18 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	recoverInterruptedTurns(project);
 	const record = readChat(project);
 	const pending = input.sendComments ? listComments(project).filter((c) => c.status === "pending") : [];
-	if (!input.text.trim() && pending.length === 0) throw new Error("Nothing to send.");
+	const attachments = resolveAttachments(project, input.attachments ?? []);
+	if (!input.text.trim() && pending.length === 0 && attachments.length === 0) throw new Error("Nothing to send.");
 	const controller = new AbortController();
 	active.set(project.id, controller);
 	activeTurnIds.set(project.id, turnId);
 	const comments = input.sendComments ? sendPending(project, turnId) : [];
 	// The reply-format reminder rides on every input: a resumed session otherwise keeps the habits of its earlier turns.
-	const userText = [input.text.trim(), renderCommentBatch(comments), REPLY_FORMAT_REMINDER].filter(Boolean).join("\n\n");
+	const userText = [input.text.trim(), attachmentBlock(project, attachments), renderCommentBatch(comments), REPLY_FORMAT_REMINDER].filter(Boolean).join("\n\n");
 	const minutes = settings.turnTimeoutMin ?? DEFAULT_TURN_TIMEOUT_MIN;
 	const ceiling = setTimeout(() => controller.abort(new TurnTimeout(minutes)), minutes * 60_000);
 	ceiling.unref();
-	const done = runTurn(project, input, { settings, turnId, record, comments, userText, controller }).finally(() => {
+	const done = runTurn(project, input, { settings, turnId, record, comments, attachments, userText, controller }).finally(() => {
 		clearTimeout(ceiling);
 		active.delete(project.id);
 		activeTurnIds.delete(project.id);
@@ -151,11 +160,12 @@ export function startTurn(project: Project, input: TurnInput): { turnId: string;
 	return { turnId, done };
 }
 
-interface TurnContext { settings: EffectiveSettings; turnId: string; record: ChatRecord; comments: Comment[]; userText: string; controller: AbortController }
+interface TurnContext { settings: EffectiveSettings; turnId: string; record: ChatRecord; comments: Comment[]; attachments: Attachment[]; userText: string; controller: AbortController }
 
 async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Promise<TurnRecord> {
-	const { settings, turnId, record, comments, userText, controller } = cx;
+	const { settings, turnId, record, comments, attachments, userText, controller } = cx;
 	const userMessage: ChatMessage = { role: "user", id: nanoid(8), text: input.text.trim(), commentIds: comments.map((c) => c.id), timestamp: Date.now() };
+	if (attachments.length) userMessage.attachments = attachments;
 	const parts: AssistantPart[] = [];
 	const assistant: ChatMessage = { role: "assistant", id: nanoid(8), turnId, parts, timestamp: Date.now() };
 	record.messages.push(userMessage, assistant);
@@ -182,7 +192,7 @@ async function runTurn(project: Project, input: TurnInput, cx: TurnContext): Pro
 		const engine = engineFor(settings.engine);
 		const resume = record.session?.engine === settings.engine ? record.session.id : undefined;
 		const tools = [compileTool(project), checkProseTool(project, turnId), resolveCommentTool(project), askAuthorTool(), delegateTool(project, settings, turnId, controller.signal)];
-		for await (const e of engine.run({ cwd: project.folder, systemPrompt: mainSystemPrompt(project, files, settings.styleNote), model: settings.model, effort: settings.effort, input: userText, resume, tools, signal: controller.signal, label: `turn ${turnId}` })) {
+		for await (const e of engine.run({ cwd: project.folder, systemPrompt: mainSystemPrompt(project, files, settings.styleNote, attachmentInventory(project, record.messages)), model: settings.model, effort: settings.effort, input: userText, resume, tools, signal: controller.signal, label: `turn ${turnId}` })) {
 			publish(project.id, { type: "agent", turnId, event: e });
 			switch (e.type) {
 				case "session":

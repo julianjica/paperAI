@@ -37,6 +37,7 @@ no API keys to manage: each run is billed to whatever plan that CLI is logged in
 | | |
 |---|---|
 | **Chat with the paper** | Ask for rewrites, additions, cuts, consistency checks. The agent edits the `.tex`/`.bib` files in place, compiles, and tells you what changed in terms of sections and passages. |
+| **Documents in the chat** | Drop a PDF on the window (a referee report, an editor's letter, a related paper) and it goes with your next message. The text is extracted once and handed to the agent as reference material; the file stays in the app's data directory, never in the paper folder. |
 | **Comments on the PDF** | Highlight text in the rendered PDF and write what should change. SyncTeX maps the highlight to `file:line`, so the agent knows exactly where to look. A **Send** button ships every pending comment as one batch; each one comes back resolved with a short note. |
 | **Parallel workers** | The main agent can delegate independent tasks (several sections, several comments in different files) to workers that run at the same time. Each worker is limited to the files it declares; overlapping batches are refused. Workers appear in the **Activity** tab with live progress and their final reports. |
 | **Safe edits** | Before every turn the manuscript is snapshotted. The **Changes** tab shows a per-file diff for each turn and a **Revert** button that restores the snapshot and removes files the agent created. |
@@ -80,7 +81,9 @@ npm run desktop:dev   # next dev + Electron, with a native "Open folder" dialog
    worker model, and effort levels. Only CLIs found on your machine are offered.
 3. **Chat.** Type a request and press Enter. The agent reads and edits files, compiles, and
    replies. Tool calls show as collapsible rows; the PDF refreshes when the compile succeeds.
-   **Stop** aborts the current turn.
+   **Stop** aborts the current turn. Drop a PDF anywhere on the window (or use the paperclip)
+   to attach it: a referee report, an editor's letter, a paper to cite. It shows as a chip
+   above the composer and goes with the next message; a chip in the sent bubble opens it.
 4. **Comment.** Select text in the PDF. A popover shows the quote and the resolved source
    location; write what should change and **Add comment**. Pending comments are highlighted
    in yellow. Repeat as needed.
@@ -121,6 +124,13 @@ browser ──SSE──▶ Next.js route handlers ──▶ turn pipeline
   highlighted text starts, and the agent is told to open the file and look around it.
 - **Sessions resume.** Each project keeps its Claude Code session or Codex thread, so later
   turns only send what's new. A failed turn drops the session and the next one starts fresh.
+- **Attachments.** A dropped PDF is stored under the project's state dir with its text
+  (extracted with pdf.js at upload). The message the agent receives carries the text inline
+  (up to 60,000 characters; longer documents are read from the text file) and the absolute
+  paths of the PDF and the text, labelled as reference material rather than instructions. A
+  scanned PDF with no text layer is marked as such; the agent is told to read the pages
+  itself. Every turn's system prompt lists the project's documents, so the agent still knows
+  about them after a session restart. Resetting the chat deletes them.
 - **Snapshots** copy the manuscript files (`.tex .bib .sty .cls .bst`) plus a listing of the
   whole tree, so a revert can also delete figures or scripts the agent created.
 
@@ -159,7 +169,7 @@ version, a submission variant), open the paper's settings and pick it under "Mai
 the app opens that document's project (created on first use with the same settings), and
 picking the previous file brings its chat back.
 
-Per-project state (build output, chat, comments, snapshots) lives under the app's data
+Per-project state (build output, chat, comments, snapshots, attached documents) lives under the app's data
 directory, `data/projects/<id>/`, never inside the paper folder: a paper folder is usually
 synced (Dropbox, Overleaf, git), and app state inside it produced "conflicted copy"
 duplicates and constant churn. The only file the app writes into the folder is the

@@ -100,8 +100,23 @@ export interface ToolCallRecord {
 	durationMs?: number;
 }
 
+/** A document the author dropped on the chat (a referee report, a related paper). Kept under the project's state dir, never in the paper folder. */
+export interface Attachment {
+	id: string;
+	/** The file's original name, for display and for the agent. */
+	name: string;
+	/** Bytes of the PDF. */
+	size: number;
+	pages: number;
+	/** Characters of extracted text. */
+	chars: number;
+	/** Almost no text came out: a scanned document, readable only as an image. */
+	scanned: boolean;
+	createdAt: number;
+}
+
 export type ChatMessage =
-	| { role: "user"; id: string; text: string; commentIds?: string[]; timestamp: number }
+	| { role: "user"; id: string; text: string; commentIds?: string[]; attachments?: Attachment[]; timestamp: number }
 	| {
 			role: "assistant";
 			id: string;
@@ -179,6 +194,7 @@ export interface QueuedMessage {
 	id: string;
 	text: string;
 	sendComments: boolean;
+	attachments?: Attachment[];
 	timestamp: number;
 }
 

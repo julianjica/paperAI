@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { AgentEvent, ChatMessage, Comment, CompileResult, Project, ProjectEvent, QueuedMessage, TurnRecord, WorkerState } from "@/src/core";
+import type { AgentEvent, Attachment, ChatMessage, Comment, CompileResult, Project, ProjectEvent, QueuedMessage, TurnRecord, WorkerState } from "@/src/core";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { setFavicon } from "@/lib/favicon";
@@ -26,6 +26,8 @@ interface Loaded {
 	compile: CompileResult | null;
 	running: boolean;
 	queued: QueuedMessage[];
+	/** Uploaded documents not sent with a message yet. */
+	attachments: Attachment[];
 }
 
 type Tab = "chat" | "comments" | "activity" | "changes";
@@ -45,6 +47,10 @@ export function Workspace({ id }: { id: string }) {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [pdfVersion, setPdfVersion] = useState(0);
 	const [toast, setToast] = useState<string | null>(null);
+	// Documents dropped on the chat, uploaded at once and sent with the next message.
+	const [attachments, setAttachments] = useState<Attachment[]>([]);
+	const [uploading, setUploading] = useState(0);
+	const [dragging, setDragging] = useState(false);
 	const turnsRunning = useRef(false);
 	// Width of the left column, draggable and remembered per browser.
 	const [asideWidth, setAsideWidth] = useState(416);
@@ -122,6 +128,7 @@ export function Workspace({ id }: { id: string }) {
 		try {
 			const r = await api.get<Loaded>(`/api/projects/${id}`);
 			setData(r);
+			setAttachments(r.attachments ?? []);
 			turnsRunning.current = r.running;
 			if (r.compile) setPdfVersion(r.compile.version);
 		} catch (e) {
@@ -216,13 +223,91 @@ export function Workspace({ id }: { id: string }) {
 	}, [draft, id]);
 
 	const send = async (text: string, sendComments: boolean) => {
+		const ids = attachments.map((a) => a.id);
 		try {
-			await api.post(`/api/projects/${id}/turn`, { text, sendComments });
+			await api.post(`/api/projects/${id}/turn`, { text, sendComments, attachments: ids });
+			setAttachments((list) => list.filter((a) => !ids.includes(a.id)));
 			setTab("chat");
 		} catch (e) {
 			showToast(e instanceof Error ? e.message : String(e));
 		}
 	};
+
+	/** Upload dropped or picked files; anything that is not a PDF is reported, not sent. */
+	const attachFiles = useCallback(
+		async (files: FileList | File[]) => {
+			const list = Array.from(files);
+			if (list.length === 0) return;
+			setTab("chat");
+			for (const file of list) {
+				const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+				if (!isPdf) {
+					showToast(`${file.name}: only PDF files can be attached.`);
+					continue;
+				}
+				setUploading((n) => n + 1);
+				try {
+					const form = new FormData();
+					form.append("file", file, file.name);
+					const res = await fetch(`/api/projects/${id}/attachments`, { method: "POST", body: form });
+					const body = (await res.json().catch(() => ({}))) as { attachment?: Attachment; error?: string };
+					if (!res.ok || !body.attachment) throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+					const attachment = body.attachment;
+					setAttachments((prev) => [...prev, attachment]);
+				} catch (e) {
+					showToast(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
+				} finally {
+					setUploading((n) => n - 1);
+				}
+			}
+		},
+		[id],
+	);
+	const removeAttachment = (aid: string) => {
+		setAttachments((list) => list.filter((a) => a.id !== aid));
+		void api.del(`/api/projects/${id}/attachments/${aid}`).catch(() => undefined);
+	};
+
+	// Drop a PDF anywhere in the window and it attaches to the chat. Without
+	// these guards the browser (and the Electron window) would open the file
+	// in place of the app.
+	useEffect(() => {
+		let depth = 0;
+		const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
+		const enter = (e: DragEvent) => {
+			if (!hasFiles(e)) return;
+			e.preventDefault();
+			depth++;
+			setDragging(true);
+		};
+		const over = (e: DragEvent) => {
+			if (!hasFiles(e)) return;
+			e.preventDefault();
+			if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+		};
+		const leave = (e: DragEvent) => {
+			if (!hasFiles(e)) return;
+			depth = Math.max(0, depth - 1);
+			if (depth === 0) setDragging(false);
+		};
+		const drop = (e: DragEvent) => {
+			if (!hasFiles(e)) return;
+			e.preventDefault();
+			depth = 0;
+			setDragging(false);
+			if (e.dataTransfer?.files.length) void attachFiles(e.dataTransfer.files);
+		};
+		window.addEventListener("dragenter", enter);
+		window.addEventListener("dragover", over);
+		window.addEventListener("dragleave", leave);
+		window.addEventListener("drop", drop);
+		return () => {
+			window.removeEventListener("dragenter", enter);
+			window.removeEventListener("dragover", over);
+			window.removeEventListener("dragleave", leave);
+			window.removeEventListener("drop", drop);
+		};
+	}, [attachFiles]);
 
 	const addComment = async (text: string) => {
 		if (!draft) return;
@@ -304,6 +389,7 @@ export function Workspace({ id }: { id: string }) {
 					<div className="flex min-h-0 flex-1 flex-col">
 						<div className={cn("flex min-h-0 flex-1 flex-col", tab !== "chat" && "hidden")}>
 							<Chat
+								projectId={id}
 								messages={data.chat.messages}
 								running={running}
 								workers={data.workers}
@@ -313,7 +399,7 @@ export function Workspace({ id }: { id: string }) {
 								onShowActivity={() => setTab("activity")}
 								onRemoveQueued={(qid) => void api.del(`/api/projects/${id}/queue/${qid}`).catch(() => undefined)}
 							/>
-							<Composer projectId={id} running={running} pendingComments={pending} onSend={send} onAbort={() => void api.post(`/api/projects/${id}/abort`)} />
+							<Composer projectId={id} running={running} pendingComments={pending} attachments={attachments} uploading={uploading > 0} onAttach={(files) => void attachFiles(files)} onRemoveAttachment={removeAttachment} onSend={send} onAbort={() => void api.post(`/api/projects/${id}/abort`)} />
 						</div>
 						<div className={cn("min-h-0 flex-1", tab !== "comments" && "hidden")}>
 							<CommentsPanel
@@ -364,6 +450,11 @@ export function Workspace({ id }: { id: string }) {
 				</main>
 			</div>
 			{draft && <CommentPopover draft={draft} anchorFile={draftAnchor} onSubmit={addComment} onCancel={() => { setDraft(null); window.getSelection()?.removeAllRanges(); }} />}
+			{dragging && (
+				<div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-panel/80">
+					<div className="rounded-lg border-2 border-dashed border-accent px-6 py-4 text-lg text-accent">Drop PDFs to attach them to the chat</div>
+				</div>
+			)}
 			{toast && <div className="fixed bottom-4 right-4 z-50 max-w-md rounded-md border border-line bg-panel px-3 py-2 shadow-lg">{toast}</div>}
 			{settingsOpen && <SettingsDialog projectId={id} onClose={() => setSettingsOpen(false)} onSwitchProject={(pid) => router.push(`/p/${pid}`)} />}
 		</div>

@@ -163,3 +163,25 @@ adapters are tested by replaying real recorded transcripts (tests/fixtures, scri
   pre-turn snapshot are the paper's terms and are not flagged (`paperVocabulary`).
 - End of turn: `scanChanges` runs over the added lines of each .tex diff; `TurnRecord.tells`
   is shown in the Changes tab (file:line, kind, match) so the author sees residue.
+
+## Documents in the chat (2026-11-27)
+- The author can drop PDFs on the window (referee reports, editor letters, related papers).
+  `POST /api/projects/:id/attachments` (multipart) stores the bytes under
+  `data/projects/<id>/attachments/<aid>.pdf`, extracts the text once with pdf.js (the legacy
+  build, listed in `serverExternalPackages`; the buffer is copied before `getDocument`, which
+  detaches what it is given) into `<aid>.txt`, and writes `<aid>.json` (`Attachment`: name,
+  size, pages, chars, scanned). The composer shows chips; ids go with the next message
+  (`TurnInput.attachments`, kept on `QueuedMessage` and on the user `ChatMessage`).
+- The agent gets `renderAttachmentBlock` appended to the message: name, page count, absolute
+  paths, the text inline up to 60k characters (then a pointer to the text file), labelled as
+  reference material rather than instructions. A document with under 25 characters a page
+  is `scanned`: no text, the agent is told to read the PDF. `attachmentInventory` lists the
+  documents sent in the chat (built from the messages, not the disk: an upload that was never
+  sent is offered again as a chip on reload instead) in the system prompt, so a fresh engine
+  session still knows about them. The standalone build traces `pdf.worker.mjs` explicitly
+  (`outputFileTracingIncludes`), since pdf.js loads it with a dynamic import. Workers
+  have no chat memory: the prompt tells the main agent to put the path or the passage in
+  the task. A chat reset deletes the documents.
+- A window-level dragover/drop guard keeps the browser (and the Electron window) from
+  navigating to the dropped file. Attachment-only messages are allowed to start a turn.
+

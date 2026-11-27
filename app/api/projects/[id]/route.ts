@@ -1,4 +1,4 @@
-import { activeTurnId, closeStaleSent, ensureSidecar, getProject, lastCompile, listComments, listManuscriptFiles, listQueued, listWorkers, readChat, recoverInterruptedTurns, removeProject, touchProject, turnRunning } from "@/src/server";
+import { activeTurnId, closeStaleSent, ensureSidecar, getProject, lastCompile, listComments, listManuscriptFiles, listQueued, listWorkers, readChat, recoverInterruptedTurns, removeProject, touchProject, turnRunning, unsentAttachments } from "@/src/server";
 
 export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]">) {
 	const { id } = await ctx.params;
@@ -10,7 +10,9 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]">
 	recoverInterruptedTurns(project);
 	// Comments left "sent" by a turn that is over are closed so the groups stay honest.
 	closeStaleSent(project, activeTurnId(id));
-	return Response.json({ project, files: listManuscriptFiles(project.folder), chat: readChat(project), comments: listComments(project), workers: listWorkers(project.id), compile: lastCompile(project) ?? null, running: turnRunning(project.id), queued: listQueued(project) });
+	const chat = readChat(project);
+	const queued = listQueued(project);
+	return Response.json({ project, files: listManuscriptFiles(project.folder), chat, comments: listComments(project), workers: listWorkers(project.id), compile: lastCompile(project) ?? null, running: turnRunning(project.id), queued, attachments: unsentAttachments(project, chat.messages, queued) });
 }
 
 export async function DELETE(_req: Request, ctx: RouteContext<"/api/projects/[id]">) {

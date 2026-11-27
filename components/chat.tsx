@@ -3,13 +3,14 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Streamdown, type PluginConfig } from "streamdown";
 import { createMathPlugin } from "@streamdown/math";
-import { Check, ChevronRight, Clock, HelpCircle, Loader2, Users, Wrench, X } from "lucide-react";
-import { prepareChatMarkdown, type AssistantPart, type ChatMessage, type QueuedMessage, type ToolCallRecord, type TurnRecord, type WorkerState } from "@/src/core";
+import { Check, ChevronRight, Clock, FileText, HelpCircle, Loader2, Users, Wrench, X } from "lucide-react";
+import { prepareChatMarkdown, type AssistantPart, type Attachment, type ChatMessage, type QueuedMessage, type ToolCallRecord, type TurnRecord, type WorkerState } from "@/src/core";
 import { cn } from "@/lib/utils";
 
 const plugins = { math: createMathPlugin({ singleDollarTextMath: true }) } as unknown as PluginConfig;
 
 export function Chat({
+	projectId,
 	messages,
 	running,
 	workers,
@@ -19,6 +20,7 @@ export function Chat({
 	onShowActivity,
 	onRemoveQueued,
 }: {
+	projectId: string;
 	messages: ChatMessage[];
 	running: boolean;
 	workers: WorkerState[];
@@ -49,7 +51,7 @@ export function Chat({
 					</div>
 				)}
 				{messages.map((m, i) => (
-					<Message key={m.id} message={m} streaming={running && i === messages.length - 1} last={i === messages.length - 1} workers={m.role === "assistant" ? workers.filter((w) => w.turnId === m.turnId) : []} onAnswer={onAnswer} />
+					<Message key={m.id} projectId={projectId} message={m} streaming={running && i === messages.length - 1} last={i === messages.length - 1} workers={m.role === "assistant" ? workers.filter((w) => w.turnId === m.turnId) : []} onAnswer={onAnswer} />
 				))}
 				{queued.map((q, i) => (
 					<div key={q.id} className="mb-2 flex justify-end">
@@ -61,7 +63,8 @@ export function Chat({
 									<X size={12} />
 								</button>
 							</div>
-							<div className="whitespace-pre-wrap text-ink">{q.text || "(comments only)"}</div>
+							<div className="whitespace-pre-wrap text-ink">{q.text || (q.attachments?.length ? "" : "(comments only)")}</div>
+							{q.attachments && q.attachments.length > 0 && <AttachmentChips projectId={projectId} attachments={q.attachments} />}
 						</div>
 					</div>
 				))}
@@ -113,12 +116,28 @@ function fmtTokens(n: number): string {
 	return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
 }
 
-const Message = memo(function Message({ message, streaming, last, workers, onAnswer }: { message: ChatMessage; streaming: boolean; last: boolean; workers: WorkerState[]; onAnswer: (text: string) => void }) {
+/** The documents sent with a message; each opens the PDF in a new tab. */
+function AttachmentChips({ projectId, attachments }: { projectId: string; attachments: Attachment[] }) {
+	return (
+		<div className="mt-1 flex flex-wrap gap-1.5 text-xs">
+			{attachments.map((a) => (
+				<a key={a.id} href={`/api/projects/${projectId}/attachments/${a.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-md border border-line bg-panel px-2 py-0.5 text-ink hover:bg-panel-2" title={a.scanned ? "Scanned: no text layer" : `${a.pages} page${a.pages === 1 ? "" : "s"}`}>
+					<FileText size={11} className="shrink-0" />
+					<span className="max-w-56 truncate">{a.name}</span>
+					<span className="text-ink-muted">{a.scanned ? "scanned" : `${a.pages}p`}</span>
+				</a>
+			))}
+		</div>
+	);
+}
+
+const Message = memo(function Message({ projectId, message, streaming, last, workers, onAnswer }: { projectId: string; message: ChatMessage; streaming: boolean; last: boolean; workers: WorkerState[]; onAnswer: (text: string) => void }) {
 	if (message.role === "user") {
 		return (
 			<div className="mb-3 flex justify-end">
 				<div className="max-w-[85%] rounded-lg bg-accent/10 px-3 py-2 whitespace-pre-wrap">
-					{message.text || <span className="text-ink-muted">(comments only)</span>}
+					{message.text || (message.attachments?.length ? null : <span className="text-ink-muted">(comments only)</span>)}
+					{message.attachments && message.attachments.length > 0 && <AttachmentChips projectId={projectId} attachments={message.attachments} />}
 					{message.commentIds && message.commentIds.length > 0 && (
 						<div className="mt-1 text-xs text-ink-muted">
 							{message.commentIds.length} comment{message.commentIds.length === 1 ? "" : "s"} attached

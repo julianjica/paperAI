@@ -12,3 +12,4 @@ export { listWorkers } from "./workers.ts";
 export { engineAvailable, MODELS } from "../engine/exec.ts";
 export { pickFolder } from "./pick-folder.ts";
 export { scanFile, scanChanges, paperVocabulary } from "./prose.ts";
+export { addAttachment, getAttachment, listAttachments, unsentAttachments, deleteAttachment, deleteAllAttachments, attachmentPdfPath, MAX_ATTACHMENT_BYTES } from "./attachments.ts";

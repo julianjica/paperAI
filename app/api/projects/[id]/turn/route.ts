@@ -5,10 +5,11 @@ export async function POST(request: Request, ctx: RouteContext<"/api/projects/[i
 	const { id } = await ctx.params;
 	const project = getProject(id);
 	if (!project) return Response.json({ error: "No such project" }, { status: 404 });
-	const body = (await request.json()) as { text?: string; sendComments?: boolean };
+	const body = (await request.json()) as { text?: string; sendComments?: boolean; attachments?: unknown };
+	const attachments = Array.isArray(body.attachments) ? body.attachments.filter((a): a is string => typeof a === "string") : [];
 	try {
 		// Starts a turn, or queues the message while one is running.
-		return Response.json(submit(project, { text: String(body.text ?? ""), sendComments: body.sendComments === true }));
+		return Response.json(submit(project, { text: String(body.text ?? ""), sendComments: body.sendComments === true, attachments }));
 	} catch (error) {
 		return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
 	}

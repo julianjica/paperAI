@@ -67,7 +67,8 @@ async function createWindow() {
 		webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false },
 	});
 	win.webContents.setWindowOpenHandler(({ url: target }) => {
-		if (!target.startsWith(url)) void shell.openExternal(target);
+		// Outside links and attached documents (opened in a new tab in the browser) go to the system browser.
+		if (!target.startsWith(url) || target.includes("/attachments/")) void shell.openExternal(target);
 		return { action: "deny" };
 	});
 	await win.loadURL(url);
